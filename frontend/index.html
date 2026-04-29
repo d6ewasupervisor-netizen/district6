@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>District 6 Compliance Hub</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <div class="brand">
+      <img src="assets/logo.png" alt="Retail Odyssey" />
+    </div>
+
+    <h1>District 6 Compliance Hub</h1>
+    <p class="lead">Enter your Retail Odyssey email to receive your secure acknowledgement link.</p>
+
+    <section class="card" aria-labelledby="form-heading">
+      <h2 id="form-heading">Request your link</h2>
+
+      <div id="status" class="notice hidden" role="status" aria-live="polite"></div>
+
+      <label for="email">Work email</label>
+      <input
+        id="email"
+        class="input"
+        type="email"
+        autocomplete="email"
+        inputmode="email"
+        placeholder="firstname.lastname@retailodyssey.com"
+        autocapitalize="none"
+        spellcheck="false"
+      />
+      <p class="help">Only @retailodyssey.com addresses are accepted.</p>
+
+      <div style="margin-top: 16px;">
+        <button id="send-btn" class="btn btn-primary btn-block" type="button">Send my link</button>
+      </div>
+    </section>
+
+    <p class="footer-note">If you have questions, contact your District 6 Supervisor.</p>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/request-link.js"></script>
+</body>
+</html>
