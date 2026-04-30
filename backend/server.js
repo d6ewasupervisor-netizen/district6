@@ -9,6 +9,13 @@ const app = express();
 
 app.set('trust proxy', 1); // Railway sits behind a proxy
 
+// EXTRA_ALLOWED_ORIGINS: optional CSV of additional exact-match origins (no wildcards,
+// no glob expansion — a literal string like "*.github.io" will simply never match).
+const extraAllowed = (process.env.EXTRA_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
   process.env.FRONTEND_BASE_URL,
   'http://localhost:3000',
@@ -16,15 +23,13 @@ const allowedOrigins = [
   'http://localhost:5500',
   'http://127.0.0.1:5500',
   'http://127.0.0.1:5173',
+  ...extraAllowed,
 ].filter(Boolean);
 
 app.use(cors({
   origin(origin, cb) {
     if (!origin) return cb(null, true); // curl, server-to-server
-    // Allow any github.io subdomain to make GH Pages preview / project pages work.
-    if (allowedOrigins.includes(origin) || /\.github\.io$/.test(new URL(origin).hostname)) {
-      return cb(null, true);
-    }
+    if (allowedOrigins.includes(origin)) return cb(null, true);
     return cb(new Error(`Origin ${origin} not allowed by CORS`));
   },
 }));

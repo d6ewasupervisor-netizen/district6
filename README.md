@@ -55,9 +55,11 @@ For production, edit `frontend/js/config.js` so the non-localhost branch points 
    - `JWT_SECRET` — `openssl rand -base64 48`
    - `RESEND_API_KEY`
    - `EMAIL_FROM`, `EMAIL_TO`
-   - `FRONTEND_BASE_URL` — the GitHub Pages URL (no trailing slash), used to build links and to allow CORS.
+   - `FRONTEND_BASE_URL` — the GitHub Pages URL (no trailing slash). Used to build links *and* as the primary CORS-allowed origin.
+   - `EXTRA_ALLOWED_ORIGINS` *(optional)* — CSV of additional exact-match CORS origins for preview deploys, e.g. `https://staging.example.com,https://pr-42.example.com`. **No wildcards** — entries are matched as literal strings, so `*.github.io` will not match anything.
+   - `PGSSL` *(optional)* — `disable` | `require` | `no-verify` | `verify-full`. Leave unset to honor `sslmode=` in `DATABASE_URL`. Set `require` for the Railway public TCP proxy; leave unset (or `disable`) for the `*.railway.internal` private hostname.
    - `LINK_TTL_DAYS` — defaults to 30 if omitted.
-5. Deploy. Migrations run automatically on first boot.
+5. Deploy. Migrations run automatically on every boot. The `schema_migrations` table tracks which files have already been applied, so re-running the same image is a no-op.
 6. Update `frontend/js/config.js` `API_BASE` to the Railway-issued URL and push.
 
 ## Operations

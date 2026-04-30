@@ -47,6 +47,30 @@ router.post('/', async (req, res) => {
   const ip = req.ip;
   const ua = req.get('user-agent') || null;
   const trimmedName = fullName.trim();
+  const signedAt = new Date();
+
+  // Build the PDF outside the DB transaction. Inputs are all from the request body, so
+  // the row lock on link_requests doesn't need to cover ~50–500ms of pdfkit rendering.
+  // Worst case on a concurrent double-submit: we waste one PDF render before the
+  // FOR UPDATE check rejects the second one. That's cheaper than holding the lock.
+  let pdfBuffer;
+  try {
+    pdfBuffer = await buildSignedReceiptPDF({
+      fullName: trimmedName,
+      email,
+      docVersion: 'Spring 2026 Edition',
+      attendanceViewedAt: attendance,
+      dressCodeViewedAt: dressCode,
+      sopViewedAt: sop,
+      agreedAt,
+      signedAt,
+      ip,
+      signatureDataUrl,
+    });
+  } catch (err) {
+    console.error('[submit] pdf build failed', err);
+    return res.status(500).json({ ok: false, error: 'Could not build receipt.' });
+  }
 
   const client = await pool.connect();
   try {
@@ -64,21 +88,6 @@ router.post('/', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(400).json({ ok: false, error: 'This link has already been used.' });
     }
-
-    const signedAt = new Date();
-
-    const pdfBuffer = await buildSignedReceiptPDF({
-      fullName: trimmedName,
-      email,
-      docVersion: 'Spring 2026 Edition',
-      attendanceViewedAt: attendance,
-      dressCodeViewedAt: dressCode,
-      sopViewedAt: sop,
-      agreedAt,
-      signedAt,
-      ip,
-      signatureDataUrl,
-    });
 
     await client.query(
       `INSERT INTO signatures (
@@ -110,6 +119,10 @@ router.post('/', async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Best-effort post-commit notification. Signature is durably recorded either way.
+    // TODO(phase-2): replace with a transactional outbox + retry worker. The current
+    // "log + emailWarning" path means a Resend outage silently drops supervisor notifications,
+    // which is acceptable for Phase 1 but not for production at scale. See README "Out of scope".
     try {
       await sendSignedReceipt({
         signerEmail: email,
@@ -119,7 +132,6 @@ router.post('/', async (req, res) => {
       });
     } catch (mailErr) {
       console.error('[submit] email send failed (signature stored)', mailErr);
-      // Signature is recorded; surface a soft warning so frontend can still redirect.
       return res.json({ ok: true, emailWarning: 'Receipt saved but email delivery failed.' });
     }
 
