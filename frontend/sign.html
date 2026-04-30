@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Acknowledge — District 6 Compliance Hub</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <div class="brand">
+      <img src="assets/logo.png" alt="Retail Odyssey" />
+    </div>
+
+    <h1>Policy Acknowledgement</h1>
+    <p class="lead">Spring 2026 Edition · Effective May 1, 2026</p>
+
+    <div id="verify-status" class="notice hidden" role="status" aria-live="polite"></div>
+
+    <div id="hub" class="hidden">
+      <p class="lead">
+        Signing as <span id="signer-email" class="signer-email">—</span>
+      </p>
+
+      <section class="card">
+        <h2>Step 1 — Review the three policies</h2>
+        <p class="help">
+          Open each document and take at least 60 seconds to read it. The acknowledgement
+          checkbox unlocks once both conditions are met.
+        </p>
+
+        <div class="doc-grid">
+          <div class="doc-card" data-doc="attendance">
+            <h3>Attendance &amp; Timekeeping</h3>
+            <p class="doc-meta">Policy · PDF</p>
+            <div class="actions">
+              <a class="btn btn-secondary doc-open" href="docs/attendance.pdf" target="_blank" rel="noopener">Open</a>
+              <div class="timer" data-timer></div>
+              <label class="checkbox-row disabled">
+                <input type="checkbox" class="doc-check" disabled />
+                <span>I have read this document</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="doc-card" data-doc="dressCode">
+            <h3>Dress Code</h3>
+            <p class="doc-meta">Policy · PDF</p>
+            <div class="actions">
+              <a class="btn btn-secondary doc-open" href="docs/dress-code.pdf" target="_blank" rel="noopener">Open</a>
+              <div class="timer" data-timer></div>
+              <label class="checkbox-row disabled">
+                <input type="checkbox" class="doc-check" disabled />
+                <span>I have read this document</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="doc-card" data-doc="sop">
+            <h3>Standard Operating Procedures</h3>
+            <p class="doc-meta">SOP · PDF</p>
+            <div class="actions">
+              <a class="btn btn-secondary doc-open" href="docs/sop.pdf" target="_blank" rel="noopener">Open</a>
+              <div class="timer" data-timer></div>
+              <label class="checkbox-row disabled">
+                <input type="checkbox" class="doc-check" disabled />
+                <span>I have read this document</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="sign-section" class="card hidden" aria-labelledby="sign-heading">
+        <h2 id="sign-heading">Step 2 — Sign your acknowledgement</h2>
+
+        <div id="submit-status" class="notice hidden" role="status" aria-live="polite"></div>
+
+        <p>
+          <strong>Email:</strong>
+          <span id="signer-email-2" class="signer-email">—</span>
+        </p>
+
+        <label for="full-name">Full Name</label>
+        <input
+          id="full-name"
+          class="input"
+          type="text"
+          autocomplete="name"
+          placeholder="First Last"
+        />
+
+        <div style="margin-top: 16px;">
+          <label>Signature</label>
+          <div class="signature-wrap">
+            <canvas id="signature-pad"></canvas>
+          </div>
+          <div class="signature-actions">
+            <span>Sign with your finger or mouse.</span>
+            <button id="clear-sig" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="legal">
+          By signing below, I acknowledge that I have received, reviewed, and understand the
+          District 6 Attendance &amp; Timekeeping Policy, Dress Code Policy, and Standard
+          Operating Procedures (Spring 2026 Edition, effective May 1, 2026). I agree to
+          follow the rules and guidelines stated in these documents and understand that
+          violations may result in disciplinary action up to and including termination. I
+          confirm I know how to access these policies in the future and may request
+          additional copies from my Supervisor at any time.
+        </div>
+
+        <label class="checkbox-row">
+          <input id="agree-check" type="checkbox" />
+          <span>I have read and agree to the acknowledgement statement above.</span>
+        </label>
+
+        <div style="margin-top: 20px;">
+          <button id="submit-btn" class="btn btn-primary btn-block" type="button" disabled>Submit Acknowledgement</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/signature_pad.umd.min.js"></script>
+  <script src="js/sign.js"></script>
+</body>
+</html>
