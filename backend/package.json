@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "smoke:receipt": "node test/receipt-renderer.smoke.js"
   },
   "engines": {
     "node": ">=20"
@@ -15,9 +16,10 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.4.0",
+    "handlebars": "^4.7.9",
     "jsonwebtoken": "^9.0.2",
-    "pdfkit": "^0.15.0",
     "pg": "^8.13.0",
+    "puppeteer": "^24.42.0",
     "resend": "^4.0.0"
   }
 }

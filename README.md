@@ -8,7 +8,7 @@ A policy acknowledgement hub for District 6 retail merchandising teammates. Team
 - **Backend** (`/backend`) — Node.js + Express on Railway. ESM modules.
 - **Database** — Railway Postgres. Schema is in `backend/migrations/001_init.sql` and runs idempotently on every boot.
 - **Email** — Resend.
-- **PDF receipts** — `pdfkit`, generated server-side and stored in `signatures.pdf_bytes`.
+- **PDF receipts** — Handlebars template (`backend/lib/templates/receipt.html`) rendered by headless Chromium via Puppeteer, generated server-side and stored in `signatures.pdf_bytes`.
 
 ## Local development
 
@@ -50,8 +50,9 @@ For production, edit `frontend/js/config.js` so the non-localhost branch points 
 
 1. Connect the repo in Railway.
 2. Set the service root directory to `/backend`.
-3. Add a Postgres plugin (Railway injects `DATABASE_URL`).
-4. Set the remaining env vars from `backend/.env.example`:
+3. **Set the builder to Dockerfile** (Service → Settings → Build → Builder). The repo ships `backend/Dockerfile`; with Service Root = `/backend`, Railway picks it up automatically. See [Why Dockerfile, not Nixpacks](#why-dockerfile-not-nixpacks) for context.
+4. Add a Postgres plugin (Railway injects `DATABASE_URL`).
+5. Set the remaining env vars from `backend/.env.example`:
    - `JWT_SECRET` — `openssl rand -base64 48`
    - `RESEND_API_KEY`
    - `EMAIL_FROM`, `EMAIL_TO`
@@ -59,8 +60,26 @@ For production, edit `frontend/js/config.js` so the non-localhost branch points 
    - `EXTRA_ALLOWED_ORIGINS` *(optional)* — CSV of additional exact-match CORS origins for preview deploys, e.g. `https://staging.example.com,https://pr-42.example.com`. **No wildcards** — entries are matched as literal strings, so `*.github.io` will not match anything.
    - `PGSSL` *(optional)* — `disable` | `require` | `no-verify` | `verify-full`. Leave unset to honor `sslmode=` in `DATABASE_URL`. Set `require` for the Railway public TCP proxy; leave unset (or `disable`) for the `*.railway.internal` private hostname.
    - `LINK_TTL_DAYS` — defaults to 30 if omitted.
-5. Deploy. Migrations run automatically on every boot. The `schema_migrations` table tracks which files have already been applied, so re-running the same image is a no-op.
-6. Update `frontend/js/config.js` `API_BASE` to the Railway-issued URL and push.
+6. Deploy. Migrations run automatically on every boot. The `schema_migrations` table tracks which files have already been applied, so re-running the same image is a no-op.
+7. Update `frontend/js/config.js` `API_BASE` to the Railway-issued URL and push.
+
+#### Why Dockerfile, not Nixpacks
+
+The receipt PDF pipeline renders a Handlebars template through headless Chromium (Puppeteer). Chromium needs a curated set of system libs (`libnss3`, `libgbm1`, `libcups2`, …) and the open-source **Carlito** font (the Calibri stand-in used in the policy PDFs) so the receipt's typography matches. Both are easier to express as `apt-get install` lines than to coax out of Nixpacks, and the resulting image is reproducible offline (`docker build backend/`). `backend/Dockerfile` is the source of truth for the deploy image — its top-of-file comment lists every package and why.
+
+If you're migrating an existing Railway service from Nixpacks:
+1. Service → Settings → Build → **Builder = Dockerfile**.
+2. Leave **Root Directory = `/backend`** as-is. Railway will look for `Dockerfile` relative to the root.
+3. Trigger a redeploy. First build takes ~3–5 minutes (apt + `npm ci` + Chromium download); subsequent builds reuse the apt and `node_modules` layers.
+
+#### Smoke-testing the receipt pipeline
+
+```bash
+cd backend
+npm run smoke:receipt
+```
+
+Renders a sample acknowledgement to a temp file and asserts the output is a non-trivial PDF. Useful before pushing template or renderer changes; runs on Windows, macOS, and Linux. The temp path is printed on success so you can open the PDF and eyeball the layout.
 
 ## Operations
 
@@ -71,7 +90,7 @@ For production, edit `frontend/js/config.js` so the non-localhost branch points 
   1. A new `.doc-card` block in `frontend/sign.html` with `data-doc="<key>"`.
   2. Add the new key to the `docs` array in `frontend/js/sign.js`.
   3. Extend `viewTimestamps` handling in `backend/routes/submit.js` and the `signatures` schema (new `*_viewed_at` column).
-  4. Update the doc list rendered in `backend/lib/email.js` and `backend/lib/pdf.js`.
+  4. Update the doc list rendered in `backend/lib/email.js`, the `documents` array built in `backend/lib/pdf.js`, and the `{{#each documents}}` section of `backend/lib/templates/receipt.html`.
 
 ### Add or replace a reference document
 

@@ -56,9 +56,9 @@ router.post('/', async (req, res) => {
   const locationStr = formatLocation(ipLocation);
 
   // Build the PDF outside the DB transaction. Inputs are all from the request body, so
-  // the row lock on link_requests doesn't need to cover ~50–500ms of pdfkit rendering.
-  // Worst case on a concurrent double-submit: we waste one PDF render before the
-  // FOR UPDATE check rejects the second one. That's cheaper than holding the lock.
+  // the row lock on link_requests doesn't need to cover ~200–800ms of headless Chromium
+  // rendering. Worst case on a concurrent double-submit: we waste one PDF render before
+  // the FOR UPDATE check rejects the second one. That's cheaper than holding the lock.
   let pdfBuffer;
   try {
     pdfBuffer = await buildSignedReceiptPDF({
