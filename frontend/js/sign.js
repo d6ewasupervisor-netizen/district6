@@ -20,7 +20,7 @@
   const docs = ['attendance', 'dressCode', 'sop'];
   const docState = {};
   docs.forEach((d) => {
-    docState[d] = { firstOpenedAt: null, viewedAt: null, intervalId: null };
+    docState[d] = { unlocked: false, viewedAt: null };
   });
 
   let token = null;
@@ -84,16 +84,28 @@
       openBtn.addEventListener('click', () => {
         const src = openBtn.getAttribute('data-pdf-src');
         const title = openBtn.getAttribute('data-pdf-title') || 'Document';
+        const state = docState[docKey];
+        const lockMs = state.unlocked ? 0 : READ_THRESHOLD_MS;
+
+        if (lockMs > 0) {
+          timer.textContent = 'Reading…';
+        }
+
         if (window.D6PdfViewer && src) {
-          window.D6PdfViewer.open(src, title);
+          window.D6PdfViewer.open(src, title, {
+            lockMs: lockMs,
+            onUnlock: () => {
+              if (state.unlocked) return;
+              state.unlocked = true;
+              timer.textContent = 'Unlocked';
+              checkbox.disabled = false;
+              checkLabel.classList.remove('disabled');
+            },
+          });
         } else if (src) {
           // Fallback if the in-app viewer failed to load.
           window.open(src, '_blank', 'noopener');
         }
-        const state = docState[docKey];
-        if (state.firstOpenedAt) return;
-        state.firstOpenedAt = Date.now();
-        startTimer(docKey, timer, checkbox, checkLabel);
       });
 
       checkbox.addEventListener('change', () => {
@@ -110,24 +122,6 @@
         maybeRevealSignSection();
       });
     });
-  }
-
-  function startTimer(docKey, timerEl, checkbox, checkLabel) {
-    const state = docState[docKey];
-    function tick() {
-      const elapsed = Date.now() - state.firstOpenedAt;
-      if (elapsed < READ_THRESHOLD_MS) {
-        timerEl.textContent = 'Reading…';
-      } else {
-        timerEl.textContent = 'Unlocked';
-        checkbox.disabled = false;
-        checkLabel.classList.remove('disabled');
-        clearInterval(state.intervalId);
-        state.intervalId = null;
-      }
-    }
-    tick();
-    state.intervalId = setInterval(tick, 500);
   }
 
   function allDocsAcknowledged() {
