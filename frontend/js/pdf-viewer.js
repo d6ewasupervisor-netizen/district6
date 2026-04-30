@@ -5,22 +5,18 @@
  * fullscreen modal with continuous-scroll pages, zoom controls, page
  * navigation, keyboard shortcuts, and a Download fallback.
  *
- * Features:
- *   - Optional read-lock countdown: while locked, the close/Esc/overlay are
- *     disabled and a visible MM:SS countdown is shown in the toolbar. When
- *     it reaches zero, an `onUnlock` callback fires and close is enabled.
- *   - Clickable link annotations are rendered as an overlay above each page
- *     and intercepted to open inside the in-app iframe viewer
- *     (`window.D6IframeViewer`). A small URL-rewrite map normalizes known
- *     "Teammate Handbook / Vendor Policies / Kompass Responsibilities"
- *     references to their canonical destinations, even if a PDF embeds an
- *     out-of-date URL.
+ * Optional read-gate: when `requireScrollToEnd: true` is passed, the close
+ * button (and Esc/overlay clicks) stay disabled until the reader scrolls to
+ * the bottom of the document. Once the bottom is reached, `onUnlock` fires
+ * and the viewer becomes closeable. There is no visible timer; if the
+ * reader has been on the page for more than 45 seconds without reaching
+ * the end, a bouncing down-arrow overlay is shown as a hint.
  *
  * Usage:
  *   window.D6PdfViewer.open(
  *     'docs/sop.pdf',
  *     'Standard Operating Procedures',
- *     { lockMs: 60000, onUnlock: () => {} }
+ *     { requireScrollToEnd: true, onUnlock: () => {} }
  *   );
  */
 (function () {
@@ -28,50 +24,8 @@
 
   const PDFJS_VERSION = '3.11.174';
   const PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + PDFJS_VERSION;
-
-  /* ---------------------------------------------------------------- */
-  /* Known external destinations referenced from inside the policy PDFs.
-   * Clicks on PDF links are matched against the patterns below
-   * (link text first, then URL host/path) and routed to the canonical
-   * URL — this protects users from outdated links baked into the PDFs. */
-  const LINK_REWRITE_RULES = [
-    {
-      url: 'https://the-dump-bin.web.app/',
-      title: 'Teammate Handbook',
-      textPatterns: [/teammate\s+handbook/i, /employee\s+handbook/i],
-      urlPatterns: [/the-dump-bin\.web\.app\/?(?:#|$|\?)/i],
-    },
-    {
-      url: 'https://the-dump-bin.web.app/vendor_policy.html',
-      title: 'Fred Meyer Vendor Policies',
-      textPatterns: [/(fred\s*meyer.*vendor|vendor\s+polic)/i],
-      urlPatterns: [/the-dump-bin\.web\.app\/vendor[_-]?polic/i],
-    },
-    {
-      url: 'https://the-dump-bin.web.app/kompass_responsibilities.html',
-      title: 'Kompass Responsibilities',
-      textPatterns: [/kompass\s+responsibilit/i, /kompass/i],
-      urlPatterns: [/the-dump-bin\.web\.app\/kompass/i],
-    },
-  ];
-
-  function resolveLink(rawUrl, linkText) {
-    const text = String(linkText || '').trim();
-    const url = String(rawUrl || '').trim();
-    for (const rule of LINK_REWRITE_RULES) {
-      if (text && rule.textPatterns.some(function (re) { return re.test(text); })) {
-        return { url: rule.url, title: rule.title };
-      }
-    }
-    for (const rule of LINK_REWRITE_RULES) {
-      if (url && rule.urlPatterns.some(function (re) { return re.test(url); })) {
-        return { url: rule.url, title: rule.title };
-      }
-    }
-    return { url: url, title: text || url };
-  }
-
-  /* ---------------------------------------------------------------- */
+  const HINT_DELAY_MS = 45 * 1000;
+  const SCROLL_END_TOLERANCE_PX = 24;
 
   let pdfJsPromise = null;
   function loadPdfJs() {
@@ -105,7 +59,7 @@
   let downloadLink = null;
   let closeBtn = null;
   let overlayEl = null;
-  let countdownEl = null;
+  let hintEl = null;
   let prevBtn, nextBtn, zoomInBtn, zoomOutBtn, zoomFitBtn;
 
   let currentPdf = null;
@@ -116,11 +70,11 @@
   let lastFocusedEl = null;
   let scrollDebounce = null;
 
-  // Lock state
+  // Read-gate state
   let isLocked = false;
-  let lockEndTime = 0;
-  let lockInterval = null;
+  let unlocked = false;
   let onUnlockCallback = null;
+  let hintTimer = null;
 
   function buildModal() {
     if (modalEl) return;
@@ -153,13 +107,15 @@
       '      <button type="button" class="pdf-viewer-iconbtn" data-pdf-zoom-in aria-label="Zoom in" title="Zoom in (+)">+</button>',
       '    </div>',
       '    <div class="pdf-viewer-toolbar-group pdf-viewer-toolbar-right">',
-      '      <span class="pdf-viewer-countdown hidden" data-pdf-countdown role="status" aria-live="polite"></span>',
       '      <a class="pdf-viewer-download" data-pdf-download href="#" target="_blank" rel="noopener" download title="Download a copy">Download</a>',
       '    </div>',
       '  </div>',
       '  <div class="pdf-viewer-body" data-pdf-body tabindex="-1">',
       '    <div class="pdf-viewer-loading" data-pdf-loading>Loading document\u2026</div>',
       '    <div class="pdf-viewer-pages" data-pdf-pages></div>',
+      '  </div>',
+      '  <div class="pdf-viewer-hint hidden" data-pdf-hint aria-hidden="true">',
+      '    <span class="pdf-viewer-hint-arrow" aria-hidden="true"></span>',
       '  </div>',
       '</div>',
     ].join('\n');
@@ -172,7 +128,7 @@
     pageInput = modalEl.querySelector('[data-pdf-page]');
     pageCountEl = modalEl.querySelector('[data-pdf-page-count]');
     downloadLink = modalEl.querySelector('[data-pdf-download]');
-    countdownEl = modalEl.querySelector('[data-pdf-countdown]');
+    hintEl = modalEl.querySelector('[data-pdf-hint]');
     closeBtn = modalEl.querySelector('.pdf-viewer-close');
     overlayEl = modalEl.querySelector('.pdf-viewer-overlay');
     prevBtn = modalEl.querySelector('[data-pdf-prev]');
@@ -196,7 +152,10 @@
 
     bodyEl.addEventListener('scroll', function () {
       if (scrollDebounce) cancelAnimationFrame(scrollDebounce);
-      scrollDebounce = requestAnimationFrame(updateCurrentPageFromScroll);
+      scrollDebounce = requestAnimationFrame(function () {
+        updateCurrentPageFromScroll();
+        maybeUnlockFromScroll();
+      });
     });
 
     document.addEventListener('keydown', onKeyDown);
@@ -209,10 +168,8 @@
 
   function onKeyDown(e) {
     if (!modalEl || modalEl.classList.contains('hidden')) return;
-    // If the iframe viewer is on top, let it handle keys.
-    if (window.D6IframeViewer && window.D6IframeViewer.isOpen && window.D6IframeViewer.isOpen()) return;
     if (e.key === 'Escape') {
-      if (isLocked) { e.preventDefault(); return; }
+      if (isLocked && !unlocked) { e.preventDefault(); return; }
       e.preventDefault();
       close();
       return;
@@ -233,59 +190,48 @@
   }
 
   function tryClose() {
-    if (isLocked) return;
+    if (isLocked && !unlocked) return;
     close();
   }
 
-  /* ------------------- Lock / countdown ------------------- */
+  /* ------------------- Read-gate ------------------- */
 
-  function startLock(ms, onUnlock) {
+  function startReadGate(onUnlock) {
     isLocked = true;
-    lockEndTime = Date.now() + ms;
+    unlocked = false;
     onUnlockCallback = typeof onUnlock === 'function' ? onUnlock : null;
     if (modalEl) modalEl.classList.add('pdf-viewer-locked');
     if (closeBtn) {
       closeBtn.disabled = true;
       closeBtn.setAttribute('aria-disabled', 'true');
     }
-    if (countdownEl) countdownEl.classList.remove('hidden');
-    tickLock();
-    if (lockInterval) clearInterval(lockInterval);
-    lockInterval = setInterval(tickLock, 250);
+    hideHint();
+    if (hintTimer) clearTimeout(hintTimer);
+    hintTimer = setTimeout(function () {
+      if (!isLocked || unlocked) return;
+      showHint();
+    }, HINT_DELAY_MS);
   }
 
-  function tickLock() {
-    if (!isLocked) return;
-    const remaining = Math.max(0, lockEndTime - Date.now());
-    if (remaining <= 0) {
-      finishLock();
-      return;
+  function maybeUnlockFromScroll() {
+    if (!isLocked || unlocked) return;
+    if (!bodyEl) return;
+    const distanceFromBottom = bodyEl.scrollHeight - (bodyEl.scrollTop + bodyEl.clientHeight);
+    if (distanceFromBottom <= SCROLL_END_TOLERANCE_PX) {
+      finishReadGate();
     }
-    const totalSecs = Math.ceil(remaining / 1000);
-    const m = Math.floor(totalSecs / 60);
-    const s = totalSecs % 60;
-    const pad = s < 10 ? '0' + s : String(s);
-    if (countdownEl) countdownEl.textContent = 'Unlocks in ' + m + ':' + pad;
   }
 
-  function finishLock() {
-    if (lockInterval) { clearInterval(lockInterval); lockInterval = null; }
-    isLocked = false;
+  function finishReadGate() {
+    if (!isLocked || unlocked) return;
+    unlocked = true;
     if (modalEl) modalEl.classList.remove('pdf-viewer-locked');
     if (closeBtn) {
       closeBtn.disabled = false;
       closeBtn.removeAttribute('aria-disabled');
     }
-    if (countdownEl) {
-      countdownEl.textContent = 'Unlocked \u2713';
-      countdownEl.classList.add('pdf-viewer-countdown-done');
-      setTimeout(function () {
-        if (countdownEl) {
-          countdownEl.classList.add('hidden');
-          countdownEl.classList.remove('pdf-viewer-countdown-done');
-        }
-      }, 2000);
-    }
+    if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    hideHint();
     const cb = onUnlockCallback;
     onUnlockCallback = null;
     if (cb) {
@@ -293,27 +239,36 @@
     }
   }
 
-  function clearLock() {
-    if (lockInterval) { clearInterval(lockInterval); lockInterval = null; }
+  function clearReadGate() {
+    if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
     isLocked = false;
+    unlocked = false;
     onUnlockCallback = null;
     if (modalEl) modalEl.classList.remove('pdf-viewer-locked');
     if (closeBtn) {
       closeBtn.disabled = false;
       closeBtn.removeAttribute('aria-disabled');
     }
-    if (countdownEl) {
-      countdownEl.classList.add('hidden');
-      countdownEl.classList.remove('pdf-viewer-countdown-done');
-      countdownEl.textContent = '';
-    }
+    hideHint();
+  }
+
+  function showHint() {
+    if (!hintEl) return;
+    hintEl.classList.remove('hidden');
+    hintEl.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideHint() {
+    if (!hintEl) return;
+    hintEl.classList.add('hidden');
+    hintEl.setAttribute('aria-hidden', 'true');
   }
 
   /* ------------------- Open / close ------------------- */
 
   async function open(url, title, options) {
     options = options || {};
-    const lockMs = Math.max(0, Number(options.lockMs) || 0);
+    const requireScrollToEnd = !!options.requireScrollToEnd;
     const onUnlock = options.onUnlock;
 
     buildModal();
@@ -331,10 +286,10 @@
     lastFocusedEl = document.activeElement;
     setTimeout(function () { try { bodyEl.focus({ preventScroll: true }); } catch (e) {} }, 0);
 
-    if (lockMs > 0) {
-      startLock(lockMs, onUnlock);
+    if (requireScrollToEnd) {
+      startReadGate(onUnlock);
     } else {
-      clearLock();
+      clearReadGate();
     }
 
     let pdfjsLib;
@@ -370,16 +325,12 @@
         wrap.dataset.pageNum = String(p);
         const canvas = document.createElement('canvas');
         canvas.className = 'pdf-viewer-canvas';
-        const linkLayer = document.createElement('div');
-        linkLayer.className = 'pdf-viewer-link-layer';
         wrap.appendChild(canvas);
-        wrap.appendChild(linkLayer);
         pagesContainer.appendChild(wrap);
         pageRefs.push({
           pageNum: p,
           wrap: wrap,
           canvas: canvas,
-          linkLayer: linkLayer,
           page: null,
           renderTask: null,
         });
@@ -387,6 +338,8 @@
       pageRefs[0].page = firstPage;
       loadingEl.style.display = 'none';
       await renderAll();
+      // Short docs may already fit in the viewport — check the gate now.
+      maybeUnlockFromScroll();
     } catch (err) {
       loadingEl.style.display = '';
       loadingEl.textContent = 'Could not load this PDF. Use Download to view it instead.';
@@ -422,8 +375,6 @@
     canvas.style.height = Math.floor(viewport.height) + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ref.wrap.style.width = Math.floor(viewport.width) + 'px';
-    ref.linkLayer.style.width = Math.floor(viewport.width) + 'px';
-    ref.linkLayer.style.height = Math.floor(viewport.height) + 'px';
     if (ref.renderTask) { try { ref.renderTask.cancel(); } catch (e) {} }
     ref.renderTask = ref.page.render({ canvasContext: ctx, viewport: viewport });
     try {
@@ -432,99 +383,6 @@
       // canceled or replaced; ignore
       return;
     }
-    try {
-      await renderLinks(ref, viewport);
-    } catch (e) {
-      // ignore link layer failures
-    }
-  }
-
-  async function renderLinks(ref, viewport) {
-    if (!ref.page) return;
-    ref.linkLayer.innerHTML = '';
-    let annotations;
-    try {
-      annotations = await ref.page.getAnnotations({ intent: 'display' });
-    } catch (e) {
-      return;
-    }
-    if (!annotations || annotations.length === 0) return;
-
-    let textItems = null;
-    try {
-      const textContent = await ref.page.getTextContent();
-      textItems = textContent && textContent.items ? textContent.items : [];
-    } catch (e) {
-      textItems = [];
-    }
-
-    for (let i = 0; i < annotations.length; i++) {
-      const annot = annotations[i];
-      if (!annot || annot.subtype !== 'Link') continue;
-      const targetUrl = annot.url || (annot.unsafeUrl ? annot.unsafeUrl : null);
-      if (!targetUrl) continue;
-      if (!annot.rect || annot.rect.length < 4) continue;
-
-      // Convert PDF-space rect [x1,y1,x2,y2] to viewport pixel coords.
-      const v1 = viewport.convertToViewportPoint(annot.rect[0], annot.rect[1]);
-      const v2 = viewport.convertToViewportPoint(annot.rect[2], annot.rect[3]);
-      const left = Math.min(v1[0], v2[0]);
-      const top = Math.min(v1[1], v2[1]);
-      const width = Math.abs(v2[0] - v1[0]);
-      const height = Math.abs(v2[1] - v1[1]);
-      if (width < 2 || height < 2) continue;
-
-      const linkText = extractTextInRect(textItems, viewport, left, top, width, height);
-
-      const a = document.createElement('a');
-      a.className = 'pdf-viewer-link';
-      a.href = targetUrl;
-      a.style.left = left + 'px';
-      a.style.top = top + 'px';
-      a.style.width = width + 'px';
-      a.style.height = height + 'px';
-      a.setAttribute('aria-label', linkText || targetUrl);
-      a.title = linkText || targetUrl;
-      a.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const resolved = resolveLink(targetUrl, linkText);
-        if (window.D6IframeViewer && resolved.url) {
-          window.D6IframeViewer.open(resolved.url, resolved.title);
-        } else if (resolved.url) {
-          window.open(resolved.url, '_blank', 'noopener');
-        }
-      });
-      ref.linkLayer.appendChild(a);
-    }
-  }
-
-  function extractTextInRect(textItems, viewport, left, top, width, height) {
-    if (!textItems || textItems.length === 0) return '';
-    const right = left + width;
-    const bottom = top + height;
-    const collected = [];
-    for (let i = 0; i < textItems.length; i++) {
-      const item = textItems[i];
-      if (!item || !item.transform || !item.str) continue;
-      // transform is [a, b, c, d, e, f]; e/f are x/y in PDF space.
-      const tx = pdfPointToViewport(item.transform[4], item.transform[5], viewport);
-      // Approximate item box: x = tx[0], y = tx[1] - itemHeight, width = item.width * scale.
-      const itemHeight = (item.height || 0) * (viewport.scale || 1);
-      const itemWidth = (item.width || 0) * (viewport.scale || 1);
-      const ix = tx[0];
-      const iy = tx[1] - itemHeight;
-      const ix2 = ix + itemWidth;
-      const iy2 = tx[1];
-      const intersects = ix < right && ix2 > left && iy < bottom && iy2 > top;
-      if (intersects) collected.push(item.str);
-      if (collected.length > 8) break;
-    }
-    return collected.join(' ').replace(/\s+/g, ' ').trim();
-  }
-
-  function pdfPointToViewport(x, y, viewport) {
-    return viewport.convertToViewportPoint(x, y);
   }
 
   function setZoom(newScale, isFit) {
@@ -535,7 +393,10 @@
     } else {
       userScale = Math.min(5, Math.max(0.4, newScale));
     }
-    renderAll().then(function () { goToPage(savedPage, true); });
+    renderAll().then(function () {
+      goToPage(savedPage, true);
+      maybeUnlockFromScroll();
+    });
   }
 
   function rerenderForFit() {
@@ -545,7 +406,10 @@
     const baseViewport = ref.page.getViewport({ scale: 1 });
     fitScale = computeFitScale(baseViewport.width);
     const savedPage = getCurrentPage();
-    renderAll().then(function () { goToPage(savedPage, true); });
+    renderAll().then(function () {
+      goToPage(savedPage, true);
+      maybeUnlockFromScroll();
+    });
   }
 
   function getCurrentPage() {
@@ -586,7 +450,7 @@
 
   function close() {
     if (!modalEl) return;
-    if (isLocked) return;
+    if (isLocked && !unlocked) return;
     modalEl.classList.add('hidden');
     document.body.classList.remove('pdf-viewer-open');
     for (let i = 0; i < pageRefs.length; i++) {
@@ -599,7 +463,7 @@
       try { currentPdf.destroy(); } catch (e) {}
       currentPdf = null;
     }
-    clearLock();
+    clearReadGate();
     if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') {
       try { lastFocusedEl.focus({ preventScroll: true }); } catch (e) {}
     }

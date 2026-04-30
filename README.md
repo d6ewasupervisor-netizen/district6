@@ -67,11 +67,26 @@ For production, edit `frontend/js/config.js` so the non-localhost branch points 
 ### Add or replace a policy document
 
 - Drop the new PDF into `frontend/docs/` using one of the existing names (`attendance.pdf`, `dress-code.pdf`, `sop.pdf`).
-- Adding a *fourth* document requires:
+- Adding a *fourth* required document means:
   1. A new `.doc-card` block in `frontend/sign.html` with `data-doc="<key>"`.
   2. Add the new key to the `docs` array in `frontend/js/sign.js`.
   3. Extend `viewTimestamps` handling in `backend/routes/submit.js` and the `signatures` schema (new `*_viewed_at` column).
   4. Update the doc list rendered in `backend/lib/email.js` and `backend/lib/pdf.js`.
+
+### Add or replace a reference document
+
+Reference materials (`handbook.pdf`, `kompass.pdf`, `vendor.pdf`) are linked from `sign.html` for context but are **not** required to acknowledge.
+
+- Drop the new PDF into `frontend/docs/`.
+- To add a new one: copy an existing `.ref-card` block in `frontend/sign.html`, point `data-pdf-src` and `href` at the new file, and adjust the title/description.
+
+### How the read-gate works
+
+The required policies use a "scroll to the end" gate, not a timer:
+
+- The acknowledgement checkbox stays disabled until the reader scrolls to the bottom of that PDF inside the in-app viewer.
+- If the reader has been on a PDF for more than 45 seconds without reaching the end, a bouncing down-arrow appears at the bottom of the viewer as a hint. There is no visible countdown.
+- Reference materials open in the same viewer with the gate disabled.
 
 ### Revoke a tokenized link
 
@@ -105,9 +120,10 @@ frontend/                  # GitHub Pages root
   index.html               # Request-link page
   sign.html                # The acknowledgement hub (gated by ?token=)
   thanks.html              # Post-submit success page
-  docs/                    # The three policy PDFs (replaced before launch)
+  docs/                    # Policy PDFs (attendance, dress-code, sop) +
+                           # reference PDFs (handbook, kompass, vendor)
   assets/{logo.png,styles.css}
-  js/{config,request-link,sign,signature_pad.umd.min}.js
+  js/{config,request-link,sign,pdf-viewer,signature_pad.umd.min}.js
 
 backend/
   server.js                # Express bootstrap + migrations on boot

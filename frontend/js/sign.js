@@ -2,7 +2,6 @@
   'use strict';
 
   const API_BASE = window.D6_CONFIG.API_BASE;
-  const READ_THRESHOLD_MS = 60 * 1000;
 
   const verifyStatus = document.getElementById('verify-status');
   const hub = document.getElementById('hub');
@@ -62,6 +61,7 @@
       signerEmailEl2.textContent = signerEmail;
       hub.classList.remove('hidden');
       initDocCards();
+      initReferenceCards();
       initSignaturePad();
       bindFormValidation();
     } catch (err) {
@@ -85,19 +85,19 @@
         const src = openBtn.getAttribute('data-pdf-src');
         const title = openBtn.getAttribute('data-pdf-title') || 'Document';
         const state = docState[docKey];
-        const lockMs = state.unlocked ? 0 : READ_THRESHOLD_MS;
+        const requireScrollToEnd = !state.unlocked;
 
-        if (lockMs > 0) {
+        if (requireScrollToEnd) {
           timer.textContent = 'Reading…';
         }
 
         if (window.D6PdfViewer && src) {
           window.D6PdfViewer.open(src, title, {
-            lockMs: lockMs,
+            requireScrollToEnd: requireScrollToEnd,
             onUnlock: () => {
               if (state.unlocked) return;
               state.unlocked = true;
-              timer.textContent = 'Unlocked';
+              timer.textContent = 'Ready to acknowledge';
               checkbox.disabled = false;
               checkLabel.classList.remove('disabled');
             },
@@ -120,6 +120,20 @@
           card.classList.remove('complete');
         }
         maybeRevealSignSection();
+      });
+    });
+  }
+
+  function initReferenceCards() {
+    const refCards = document.querySelectorAll('[data-ref-pdf]');
+    refCards.forEach((card) => {
+      card.addEventListener('click', (e) => {
+        if (!window.D6PdfViewer) return; // let the browser follow the href
+        e.preventDefault();
+        const src = card.getAttribute('data-pdf-src');
+        const title = card.getAttribute('data-pdf-title') || 'Document';
+        if (!src) return;
+        window.D6PdfViewer.open(src, title, { requireScrollToEnd: false });
       });
     });
   }
