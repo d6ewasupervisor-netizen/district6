@@ -3,6 +3,7 @@ import { verifyToken } from '../lib/tokens.js';
 import { query, pool } from '../lib/db.js';
 import { buildSignedReceiptPDF, formatPacific } from '../lib/pdf.js';
 import { sendSignedReceipt } from '../lib/email.js';
+import { lookupIpLocation, formatLocation } from '../lib/geo.js';
 
 const router = express.Router();
 
@@ -49,6 +50,11 @@ router.post('/', async (req, res) => {
   const trimmedName = fullName.trim();
   const signedAt = new Date();
 
+  // Best-effort IP geolocation. Cached + tightly timeboxed inside lookupIpLocation
+  // so a slow geo provider can't stall the submission. Result may be null.
+  const ipLocation = await lookupIpLocation(ip);
+  const locationStr = formatLocation(ipLocation);
+
   // Build the PDF outside the DB transaction. Inputs are all from the request body, so
   // the row lock on link_requests doesn't need to cover ~50–500ms of pdfkit rendering.
   // Worst case on a concurrent double-submit: we waste one PDF render before the
@@ -65,6 +71,7 @@ router.post('/', async (req, res) => {
       agreedAt,
       signedAt,
       ip,
+      location: locationStr,
       signatureDataUrl,
     });
   } catch (err) {
@@ -93,8 +100,8 @@ router.post('/', async (req, res) => {
       `INSERT INTO signatures (
          email, full_name, signature_data_url, doc_version,
          attendance_viewed_at, dress_code_viewed_at, sop_viewed_at,
-         agreed_at, signed_at, ip, user_agent, jti, pdf_bytes
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+         agreed_at, signed_at, ip, user_agent, jti, pdf_bytes, location
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [
         email,
         trimmedName,
@@ -109,6 +116,7 @@ router.post('/', async (req, res) => {
         ua,
         jti,
         pdfBuffer,
+        locationStr,
       ],
     );
 

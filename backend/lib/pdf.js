@@ -42,6 +42,7 @@ export async function buildSignedReceiptPDF({
   agreedAt,
   signedAt,
   ip,
+  location,
   signatureDataUrl,
 }) {
   return new Promise((resolve, reject) => {
@@ -103,10 +104,14 @@ export async function buildSignedReceiptPDF({
         }
       }
 
-      const footerText = `Signed at ${formatPacific(signedAt)} from IP ${ip || 'unknown'} | This is a system-generated acknowledgement.`;
-      const bottomY = doc.page.height - 60;
+      const footerLines = [`Signed at ${formatPacific(signedAt)} from IP ${ip || 'unknown'}`];
+      if (location) {
+        footerLines.push(`Approximate location based on IP: ${location}`);
+      }
+      footerLines.push('This is a system-generated acknowledgement.');
+      const bottomY = doc.page.height - 80;
       doc.font('Helvetica').fontSize(9).fillColor('#666')
-        .text(footerText, 54, bottomY, {
+        .text(footerLines.join('\n'), 54, bottomY, {
           width: doc.page.width - 108,
           align: 'center',
         });
