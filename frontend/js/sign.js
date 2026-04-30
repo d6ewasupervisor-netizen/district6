@@ -76,12 +76,20 @@
   function initDocCards() {
     docs.forEach((docKey) => {
       const card = getDocCard(docKey);
-      const openLink = card.querySelector('.doc-open');
+      const openBtn = card.querySelector('.doc-open');
       const checkbox = card.querySelector('.doc-check');
       const checkLabel = card.querySelector('.checkbox-row');
       const timer = card.querySelector('[data-timer]');
 
-      openLink.addEventListener('click', () => {
+      openBtn.addEventListener('click', () => {
+        const src = openBtn.getAttribute('data-pdf-src');
+        const title = openBtn.getAttribute('data-pdf-title') || 'Document';
+        if (window.D6PdfViewer && src) {
+          window.D6PdfViewer.open(src, title);
+        } else if (src) {
+          // Fallback if the in-app viewer failed to load.
+          window.open(src, '_blank', 'noopener');
+        }
         const state = docState[docKey];
         if (state.firstOpenedAt) return;
         state.firstOpenedAt = Date.now();
@@ -108,12 +116,10 @@
     const state = docState[docKey];
     function tick() {
       const elapsed = Date.now() - state.firstOpenedAt;
-      const remaining = Math.max(0, READ_THRESHOLD_MS - elapsed);
-      if (remaining > 0) {
-        const secs = Math.ceil(remaining / 1000);
-        timerEl.textContent = `Available in ${secs}s after opening`;
+      if (elapsed < READ_THRESHOLD_MS) {
+        timerEl.textContent = 'Reading…';
       } else {
-        timerEl.textContent = 'Ready — please confirm';
+        timerEl.textContent = 'Unlocked';
         checkbox.disabled = false;
         checkLabel.classList.remove('disabled');
         clearInterval(state.intervalId);
