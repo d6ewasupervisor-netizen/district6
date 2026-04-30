@@ -7,7 +7,7 @@ if (!process.env.RESEND_API_KEY) {
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = process.env.EMAIL_FROM || 'District 6 Compliance <noreply@retail-odyssey.com>';
-const SUPERVISOR = process.env.EMAIL_TO || 'tyson.a.gauthier@gmail.com';
+const SUPERVISOR = process.env.EMAIL_TO || 'april.gauthier@retailodyssey.com';
 
 export async function sendLinkEmail({ to, link }) {
   const subject = 'Your District 6 Policy Acknowledgement Link';
