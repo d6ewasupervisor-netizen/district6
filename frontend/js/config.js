@@ -8,6 +8,6 @@ window.D6_CONFIG = {
       return 'http://localhost:3000';
     }
     // Production backend (Railway). Replace with your deployed URL.
-    return 'https://district6-compliance-api.up.railway.app';
+    return 'https://district6-production.up.railway.app';
   })(),
 };
