@@ -24,10 +24,10 @@
       showStatus('error', 'Please enter a valid email address.');
       return;
     }
-    if (!email.endsWith('@retailodyssey.com')) {
-      showStatus('error', 'Only @retailodyssey.com emails are accepted.');
-      return;
-    }
+    // Server is the authoritative source for the access list (corporate domain
+    // OR personal allowlist). The client only validates the format here so we
+    // get fast feedback on typos; the server returns a friendly rejection
+    // message for addresses that aren't on the list.
 
     sendBtn.disabled = true;
     sendBtn.textContent = 'Sending…';

@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { issueToken } from '../lib/tokens.js';
 import { query } from '../lib/db.js';
 import { sendLinkEmail } from '../lib/email.js';
+import { isEmailAllowed } from '../lib/allowed-emails.js';
 
 const router = express.Router();
 
@@ -15,7 +16,6 @@ const limiter = rateLimit({
 });
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_DOMAIN = 'retailodyssey.com';
 
 router.post('/', limiter, async (req, res) => {
   try {
@@ -26,10 +26,10 @@ router.post('/', limiter, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Please enter a valid email address.' });
     }
 
-    if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+    if (!isEmailAllowed(email)) {
       return res.status(400).json({
         ok: false,
-        error: `Only @${ALLOWED_DOMAIN} emails are accepted.`,
+        error: 'This email is not on the access list. Contact your supervisor if you believe this is in error.',
       });
     }
 
