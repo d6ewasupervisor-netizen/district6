@@ -1,15 +1,21 @@
 :root {
-  --navy: #1a3a6e;
-  --navy-dark: #122a52;
-  --light-blue: #5ba8e0;
-  --bg: #ffffff;
-  --text: #1d1d1f;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --bg-subtle: #f7f9fc;
-  --error: #b91c1c;
-  --error-bg: #fef2f2;
-  --ok: #166534;
+  --navy: #1A3A6E;
+  --navy-dark: #122A52;
+  --light-blue: #5BA8E0;
+  --light-blue-soft: #E8F2FB;
+  --bg: #F4F6FA;
+  --card: #FFFFFF;
+  --text: #1F2937;
+  --text-muted: #6B7280;
+  --border: #E5E7EB;
+  --success: #15803D;
+  --error: #B91C1C;
+  --error-bg: #FEF2F2;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10);
+  --radius: 12px;
+  --radius-sm: 8px;
 }
 
 * { box-sizing: border-box; }
@@ -21,211 +27,284 @@ html, body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .container {
-  max-width: 1080px;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 20px 16px 80px;
+  padding: 32px 20px 60px;
 }
 
 .brand {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: 8px 0 24px;
+  justify-content: center;
+  margin-bottom: 28px;
 }
 .brand img {
-  display: block;
-  width: 100%;
   max-width: 280px;
+  width: 100%;
   height: auto;
 }
 
 h1 {
-  font-size: 1.6rem;
-  margin: 0 0 8px;
-  color: var(--navy);
   text-align: center;
-}
-h2 {
-  font-size: 1.2rem;
-  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 700;
   color: var(--navy);
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
 }
-p { margin: 0 0 12px; }
-.lead { text-align: center; color: var(--muted); margin-bottom: 24px; }
+
+.lead {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 16px;
+  margin: 0 0 32px;
+}
 
 .card {
-  background: #fff;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 28px;
+  margin-bottom: 20px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 2px rgba(0,0,0,.03);
+}
+.card h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--navy);
+  margin: 0 0 16px;
 }
 
-.input {
+label {
   display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+input[type="email"],
+input[type="text"] {
   width: 100%;
   padding: 12px 14px;
-  font-size: 1rem;
+  font-size: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #fff;
   color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.input:focus {
+input[type="email"]:focus,
+input[type="text"]:focus {
   outline: none;
   border-color: var(--light-blue);
-  box-shadow: 0 0 0 3px rgba(91, 168, 224, .25);
+  box-shadow: 0 0 0 3px rgba(91, 168, 224, 0.20);
 }
 
-.btn {
-  display: inline-block;
-  padding: 12px 18px;
-  font-size: 1rem;
-  font-weight: 600;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
-  text-decoration: none;
-  text-align: center;
+.help-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 6px;
 }
-.btn-primary {
+
+button.primary,
+.primary {
+  width: 100%;
+  padding: 13px 20px;
+  font-size: 16px;
+  font-weight: 600;
   background: var(--navy);
   color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-top: 18px;
+  transition: background-color 0.15s, transform 0.05s;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
 }
-.btn-primary:hover:not(:disabled) { background: var(--navy-dark); }
-.btn-primary:disabled {
-  background: #9ca3af;
+button.primary:hover:not(:disabled),
+.primary:hover:not(:disabled) { background: var(--navy-dark); }
+button.primary:active:not(:disabled),
+.primary:active:not(:disabled) { transform: translateY(1px); }
+button.primary:disabled,
+.primary:disabled {
+  background: #C7CDD7;
   cursor: not-allowed;
-  opacity: 0.7;
 }
-.btn-secondary {
+
+button.secondary,
+.secondary {
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
   background: #fff;
   color: var(--navy);
-  border-color: var(--navy);
-}
-.btn-secondary:hover { background: var(--bg-subtle); }
-.btn-block { display: block; width: 100%; }
-
-label { display: block; margin: 0 0 6px; font-weight: 600; }
-
-.help { color: var(--muted); font-size: .9rem; margin-top: 6px; }
-
-.notice {
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-bottom: 16px;
-  font-size: .95rem;
-}
-.notice-error { background: var(--error-bg); color: var(--error); border: 1px solid #fecaca; }
-.notice-ok { background: #f0fdf4; color: var(--ok); border: 1px solid #bbf7d0; }
-.hidden { display: none !important; }
-
-.signer-email {
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s;
+  text-decoration: none;
   display: inline-block;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .95rem;
 }
+button.secondary:hover,
+.secondary:hover { background: var(--light-blue-soft); }
 
-/* Doc cards */
-.doc-grid {
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+.alert.success { background: #ECFDF5; color: var(--success); border: 1px solid #BBF7D0; }
+.alert.error { background: var(--error-bg); color: var(--error); border: 1px solid #FECACA; }
+.alert.info { background: var(--light-blue-soft); color: var(--navy); border: 1px solid #BFDBFE; }
+
+/*
+ * Existing JS (request-link.js, sign.js) sets status elements to
+ * "notice notice-ok" / "notice notice-error" and toggles a "hidden" class.
+ * Map those onto the alert visual system above so the JS keeps working
+ * without modification.
+ */
+.hidden { display: none !important; }
+.notice { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 14px; margin-bottom: 18px; }
+.notice-ok { background: #ECFDF5; color: var(--success); border: 1px solid #BBF7D0; }
+.notice-error { background: var(--error-bg); color: var(--error); border: 1px solid #FECACA; }
+
+/* Doc cards (sign.html) */
+.doc-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: 14px;
   margin: 8px 0 24px;
-}
-@media (min-width: 900px) {
-  .doc-grid { grid-template-columns: repeat(3, 1fr); }
 }
 .doc-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  gap: 12px;
   padding: 18px;
-  background: #fff;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.doc-card h3 {
-  margin: 0 0 6px;
+.doc-card.viewed { border-color: var(--light-blue); box-shadow: 0 0 0 2px rgba(91, 168, 224, 0.15); }
+.doc-card.complete { border-color: var(--success); background: #F0FDF4; }
+.doc-card-title {
+  font-weight: 600;
+  font-size: 15px;
   color: var(--navy);
-  font-size: 1.05rem;
+  margin: 0;
 }
-.doc-card .doc-meta { color: var(--muted); font-size: .9rem; margin-bottom: 14px; }
-.doc-card .actions { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
-.doc-card .timer { font-size: .85rem; color: var(--muted); min-height: 1.2em; }
-.doc-card.complete { border-color: #86efac; background: #f0fdf4; }
+.doc-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: -8px 0 0;
+}
+.doc-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.doc-card-status {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.doc-card-status.locked { color: var(--text-muted); }
+.doc-card-status.unlocked { color: var(--success); font-weight: 500; }
+.doc-card.complete .doc-card-status { color: var(--success); font-weight: 500; }
 
 .checkbox-row {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-weight: 500;
+  font-size: 14px;
+  color: var(--text);
   cursor: pointer;
   user-select: none;
 }
 .checkbox-row input[type="checkbox"] {
-  margin-top: 3px;
+  margin-top: 2px;
   width: 18px;
   height: 18px;
-  flex: 0 0 18px;
   cursor: pointer;
+  accent-color: var(--navy);
 }
-.checkbox-row input[type="checkbox"]:disabled { cursor: not-allowed; }
-.checkbox-row.disabled { color: var(--muted); cursor: not-allowed; }
+.checkbox-row.disabled { color: var(--text-muted); cursor: not-allowed; }
+.checkbox-row.disabled input { cursor: not-allowed; }
 
-.legal {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
-  font-size: .95rem;
-  margin: 12px 0;
-}
-
-.signature-wrap {
-  border: 1px solid var(--border);
-  border-radius: 8px;
+/* Signature pad */
+.sig-wrap {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
   background: #fff;
+  padding: 0;
   position: relative;
   overflow: hidden;
+  margin: 8px 0 4px;
 }
-.signature-wrap canvas {
+.sig-wrap canvas {
   display: block;
   width: 100%;
   height: 200px;
   touch-action: none;
 }
-.signature-actions {
+.sig-actions {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
-  font-size: .9rem;
-  color: var(--muted);
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
-.signature-actions button {
-  background: none;
-  border: none;
+.sig-actions button {
+  padding: 8px 14px;
+  font-size: 13px;
+  background: #fff;
   color: var(--navy);
-  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  padding: 4px 8px;
-  font-size: .9rem;
+}
+.sig-actions button:hover { background: var(--light-blue-soft); border-color: var(--navy); }
+
+/* Legal text block */
+.legal-text {
+  background: #FAFBFC;
+  border-left: 3px solid var(--light-blue);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 18px 0;
 }
 
-.footer-note {
-  margin-top: 32px;
+/* Helper for the email shown next to "Signing as" */
+.signer-email {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+/* Footer */
+footer {
   text-align: center;
-  color: var(--muted);
-  font-size: .85rem;
+  margin-top: 48px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Desktop tweaks */
+@media (min-width: 720px) {
+  .container { padding: 56px 24px 80px; }
+  h1 { font-size: 32px; }
+  .card { padding: 32px; }
 }

@@ -24,49 +24,49 @@
 
       <section class="card">
         <h2>Step 1 — Review the three policies</h2>
-        <p class="help">
+        <p class="help-text">
           Open each document and take at least 60 seconds to read it. The acknowledgement
           checkbox unlocks once both conditions are met.
         </p>
 
-        <div class="doc-grid">
+        <div class="doc-list">
           <div class="doc-card" data-doc="attendance">
-            <h3>Attendance &amp; Timekeeping</h3>
+            <h3 class="doc-card-title">Attendance &amp; Timekeeping</h3>
             <p class="doc-meta">Policy · PDF</p>
-            <div class="actions">
-              <a class="btn btn-secondary doc-open" href="docs/attendance.pdf" target="_blank" rel="noopener">Open</a>
-              <div class="timer" data-timer></div>
-              <label class="checkbox-row disabled">
-                <input type="checkbox" class="doc-check" disabled />
-                <span>I have read this document</span>
-              </label>
+            <div class="doc-card-row">
+              <a class="secondary doc-open" href="docs/attendance.pdf" target="_blank" rel="noopener">Open</a>
+              <div class="doc-card-status" data-timer></div>
             </div>
+            <label class="checkbox-row disabled">
+              <input type="checkbox" class="doc-check" disabled />
+              <span>I have read this document</span>
+            </label>
           </div>
 
           <div class="doc-card" data-doc="dressCode">
-            <h3>Dress Code</h3>
+            <h3 class="doc-card-title">Dress Code</h3>
             <p class="doc-meta">Policy · PDF</p>
-            <div class="actions">
-              <a class="btn btn-secondary doc-open" href="docs/dress-code.pdf" target="_blank" rel="noopener">Open</a>
-              <div class="timer" data-timer></div>
-              <label class="checkbox-row disabled">
-                <input type="checkbox" class="doc-check" disabled />
-                <span>I have read this document</span>
-              </label>
+            <div class="doc-card-row">
+              <a class="secondary doc-open" href="docs/dress-code.pdf" target="_blank" rel="noopener">Open</a>
+              <div class="doc-card-status" data-timer></div>
             </div>
+            <label class="checkbox-row disabled">
+              <input type="checkbox" class="doc-check" disabled />
+              <span>I have read this document</span>
+            </label>
           </div>
 
           <div class="doc-card" data-doc="sop">
-            <h3>Standard Operating Procedures</h3>
+            <h3 class="doc-card-title">Standard Operating Procedures</h3>
             <p class="doc-meta">SOP · PDF</p>
-            <div class="actions">
-              <a class="btn btn-secondary doc-open" href="docs/sop.pdf" target="_blank" rel="noopener">Open</a>
-              <div class="timer" data-timer></div>
-              <label class="checkbox-row disabled">
-                <input type="checkbox" class="doc-check" disabled />
-                <span>I have read this document</span>
-              </label>
+            <div class="doc-card-row">
+              <a class="secondary doc-open" href="docs/sop.pdf" target="_blank" rel="noopener">Open</a>
+              <div class="doc-card-status" data-timer></div>
             </div>
+            <label class="checkbox-row disabled">
+              <input type="checkbox" class="doc-check" disabled />
+              <span>I have read this document</span>
+            </label>
           </div>
         </div>
       </section>
@@ -84,7 +84,6 @@
         <label for="full-name">Full Name</label>
         <input
           id="full-name"
-          class="input"
           type="text"
           autocomplete="name"
           placeholder="First Last"
@@ -92,16 +91,16 @@
 
         <div style="margin-top: 16px;">
           <label>Signature</label>
-          <div class="signature-wrap">
+          <div class="sig-wrap">
             <canvas id="signature-pad"></canvas>
           </div>
-          <div class="signature-actions">
+          <div class="sig-actions">
             <span>Sign with your finger or mouse.</span>
             <button id="clear-sig" type="button">Clear</button>
           </div>
         </div>
 
-        <div class="legal">
+        <div class="legal-text">
           By signing below, I acknowledge that I have received, reviewed, and understand the
           District 6 Attendance &amp; Timekeeping Policy, Dress Code Policy, and Standard
           Operating Procedures (Spring 2026 Edition, effective May 1, 2026). I agree to
@@ -116,11 +115,13 @@
           <span>I have read and agree to the acknowledgement statement above.</span>
         </label>
 
-        <div style="margin-top: 20px;">
-          <button id="submit-btn" class="btn btn-primary btn-block" type="button" disabled>Submit Acknowledgement</button>
-        </div>
+        <button id="submit-btn" class="primary" type="button" disabled>Submit Acknowledgement</button>
       </section>
     </div>
+
+    <footer>
+      District 6 Compliance Hub &middot; Spring 2026 Edition
+    </footer>
   </main>
 
   <script src="js/config.js"></script>
