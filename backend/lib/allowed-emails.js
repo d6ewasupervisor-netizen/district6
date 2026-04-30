@@ -39,6 +39,7 @@ const ALLOWED_EMAILS = new Set([
   'ojoya18@gmail.com',                          // Oscar Joya Rodriguez
   'tiffanypond04@gmail.com',                    // Tiffany Pond
   'tinaloera1970@gmail.com',                    // Tina Loera
+  'tgauthier2011@gmail.com',                    // Tyson Gauthier
 ]);
 
 /**
