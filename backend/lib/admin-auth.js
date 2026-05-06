@@ -1,5 +1,5 @@
 import { verifyAdminSessionToken } from './admin-jwt.js';
-import { getSiteAdmin } from './site-admin.js';
+import { getAdminRow } from './site-admin.js';
 
 function readBearer(req) {
   const auth = req.get('authorization') || '';
@@ -20,17 +20,13 @@ export function requireAdmin(req, res, next) {
         return;
       }
       const payload = verifyAdminSessionToken(token);
-      const row = await getSiteAdmin();
+      const emailClaim = (payload.email || '').trim().toLowerCase();
+      const row = await getAdminRow(emailClaim);
       if (!row?.password_hash) {
-        res.status(503).json({ ok: false, error: 'Admin login is not available yet.' });
-        return;
-      }
-      const expected = row.admin_email.trim().toLowerCase();
-      if ((payload.email || '').trim().toLowerCase() !== expected) {
         res.status(401).json({ ok: false, error: 'Session expired. Sign in again.' });
         return;
       }
-      req.adminEmail = expected;
+      req.adminEmail = row.email;
       next();
     } catch (err) {
       if (err && (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError')) {

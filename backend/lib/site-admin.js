@@ -1,27 +1,39 @@
 import { query } from './db.js';
 
-const SINGLETON_ID = 1;
+/** Email whose first-time PASSWORD slot is unlocked by ADMIN_SETUP_TOKEN (when password_hash IS NULL). */
+export const PRIMARY_ADMIN_EMAIL = (
+  process.env.PRIMARY_ADMIN_EMAIL || 'april.gauthier@retailodyssey.com'
+).trim().toLowerCase();
 
 /**
- * @returns {Promise<{ admin_email: string, password_hash: string | null } | null>}
+ * @param {string} emailNorm — lowercase trimmed
  */
-export async function getSiteAdmin() {
+export async function getAdminRow(emailNorm) {
   const { rows } = await query(
-    'SELECT admin_email, password_hash FROM site_admin WHERE id = $1 LIMIT 1',
-    [SINGLETON_ID],
+    'SELECT email, password_hash FROM site_admins WHERE lower(trim(email)) = $1 LIMIT 1',
+    [emailNorm],
   );
-  return rows[0] || null;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    email: row.email.trim().toLowerCase(),
+    password_hash: row.password_hash,
+  };
+}
+
+/** Row used for PUBLIC /status and POST /setup (bootstrap token unlocks THIS email only when hash is NULL). */
+export async function getPrimaryBootstrapAdmin() {
+  return getAdminRow(PRIMARY_ADMIN_EMAIL);
 }
 
 /**
- * @returns {Promise<boolean>}
+ * Set password_hash only while still NULL (first-time setup completion).
  */
-export async function setAdminPasswordHash(passwordHash) {
+export async function setPasswordHashIfUnset(emailNorm, passwordHash) {
   const { rowCount } = await query(
-    `UPDATE site_admin
-     SET password_hash = $1, password_set_at = NOW()
-     WHERE id = $2 AND password_hash IS NULL`,
-    [passwordHash, SINGLETON_ID],
+    `UPDATE site_admins SET password_hash = $1, password_set_at = NOW()
+     WHERE lower(trim(email)) = $2 AND password_hash IS NULL`,
+    [passwordHash, emailNorm],
   );
   return rowCount > 0;
 }

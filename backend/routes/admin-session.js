@@ -2,9 +2,11 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
 import {
-  getSiteAdmin,
-  setAdminPasswordHash,
+  PRIMARY_ADMIN_EMAIL,
+  getAdminRow,
+  getPrimaryBootstrapAdmin,
   maskAdminEmail,
+  setPasswordHashIfUnset,
 } from '../lib/site-admin.js';
 import { issueAdminSessionToken } from '../lib/admin-jwt.js';
 import { requireAdmin } from '../lib/admin-auth.js';
@@ -76,15 +78,16 @@ const loginLimiter = rateLimit({
 
 router.get('/status', statusLimiter, async (_req, res) => {
   try {
-    const row = await getSiteAdmin();
+    const row = await getPrimaryBootstrapAdmin();
     if (!row) {
       return res.status(503).json({ ok: false, error: 'Admin profile is not ready.' });
     }
-    const email = row.admin_email.trim().toLowerCase();
+    const email = row.email;
     const needsPasswordSetup = !row.password_hash;
     return res.json({
       ok: true,
       needsPasswordSetup,
+      primaryAdminEmail: email,
       adminEmail: email,
       maskedEmail: maskAdminEmail(email),
       setupTokenConfigured: needsPasswordSetup ? setupTokenConfigured() : true,
@@ -97,14 +100,15 @@ router.get('/status', statusLimiter, async (_req, res) => {
 
 router.post('/setup', setupLimiter, async (req, res) => {
   try {
-    const row = await getSiteAdmin();
-    if (!row) {
+    const bootstrap = await getPrimaryBootstrapAdmin();
+    if (!bootstrap) {
       return res.status(503).json({ ok: false, error: 'Admin profile is not ready.' });
     }
-    if (row.password_hash) {
+    if (bootstrap.password_hash) {
       return res.status(400).json({
         ok: false,
-        error: 'A password is already set. Sign in with your email and password.',
+        error:
+          `A password is already set for ${PRIMARY_ADMIN_EMAIL}. Sign in with your email and password.`,
       });
     }
     if (!setupTokenConfigured()) {
@@ -138,7 +142,7 @@ router.post('/setup', setupLimiter, async (req, res) => {
     }
 
     const hash = bcrypt.hashSync(a.trimmed, bcrypt.genSaltSync(bcryptCost));
-    const saved = await setAdminPasswordHash(hash);
+    const saved = await setPasswordHashIfUnset(PRIMARY_ADMIN_EMAIL, hash);
     if (!saved) {
       return res.status(409).json({
         ok: false,
@@ -146,9 +150,9 @@ router.post('/setup', setupLimiter, async (req, res) => {
       });
     }
 
-    const adminEmail = row.admin_email.trim().toLowerCase();
+    const adminEmail = PRIMARY_ADMIN_EMAIL;
     const sessionToken = issueAdminSessionToken(adminEmail);
-    console.log('[admin-session] initial password configured');
+    console.log(`[admin-session] initial password configured for ${adminEmail}`);
     return res.json({ ok: true, token: sessionToken, email: adminEmail });
   } catch (err) {
     console.error('[admin-session] setup', err);
@@ -158,23 +162,21 @@ router.post('/setup', setupLimiter, async (req, res) => {
 
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const row = await getSiteAdmin();
-    if (!row?.password_hash) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Password is not set yet. Complete first-time setup first.',
-      });
-    }
-
     const rawEmail = req.body && req.body.email ? String(req.body.email) : '';
     const email = rawEmail.trim().toLowerCase();
     if (!email || !EMAIL_RE.test(email)) {
       return res.status(400).json({ ok: false, error: 'Enter a valid email address.' });
     }
 
-    const expected = row.admin_email.trim().toLowerCase();
-    if (email !== expected) {
-      return res.status(401).json({ ok: false, error: 'Incorrect email or password.' });
+    const row = await getAdminRow(email);
+    if (!row?.password_hash) {
+      return res.status(401).json({
+        ok: false,
+        error:
+          email === PRIMARY_ADMIN_EMAIL
+            ? 'Password is not set yet. Complete first-time setup first.'
+            : 'Incorrect email or password.',
+      });
     }
 
     const rawPw = req.body && req.body.password != null ? String(req.body.password) : '';
@@ -183,8 +185,8 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ ok: false, error: 'Incorrect email or password.' });
     }
 
-    const sessionToken = issueAdminSessionToken(expected);
-    return res.json({ ok: true, token: sessionToken, email: expected });
+    const sessionToken = issueAdminSessionToken(row.email);
+    return res.json({ ok: true, token: sessionToken, email: row.email });
   } catch (err) {
     console.error('[admin-session] login', err);
     return res.status(500).json({ ok: false, error: 'Could not sign in.' });

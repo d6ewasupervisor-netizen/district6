@@ -153,9 +153,7 @@
       }
 
       show(loginSection);
-      if (data.adminEmail) {
-        loginEmailEl.value = data.adminEmail;
-      }
+      loginEmailEl.value = '';
       loginPwEl.focus();
     } catch (_err) {
       show(blockedSection);
