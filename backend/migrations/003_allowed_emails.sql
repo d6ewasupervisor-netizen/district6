@@ -1,5 +1,5 @@
--- Personal email allowlist (non-@retailodyssey.com) for requesting compliance links.
--- @retailodyssey.com addresses are always allowed by application logic — do not insert them here.
+-- Personal email allowlist for requesting compliance links (addresses not on approved work domains).
+-- Work domains (e.g. @retailodyssey.com, @sasretailservices.com) are always allowed by application logic — do not insert them here.
 CREATE TABLE IF NOT EXISTS allowed_emails (
   email TEXT PRIMARY KEY,
   note TEXT,

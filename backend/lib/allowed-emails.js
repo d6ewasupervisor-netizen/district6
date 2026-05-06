@@ -1,14 +1,38 @@
 // backend/lib/allowed-emails.js
 //
 // Access control for requesting compliance links:
-//   - Any email ending in @retailodyssey.com is allowed, OR
+//   - Any email whose domain is in CORPORATE_EMAIL_DOMAINS is allowed, OR
 //   - Email exists in Postgres table `allowed_emails` (managed via admin UI).
-//
-// Maintain the list through /admin.html on the frontend (ADMIN_API_KEY on the API).
 
 import { query } from './db.js';
 
-export const CORPORATE_DOMAIN = 'retailodyssey.com';
+/** Lowercase hostnames (no @) that never need to be on the extra allowlist. */
+export const CORPORATE_EMAIL_DOMAINS = [
+  'advantagesolutions.net',
+  'retailodyssey.com',
+  'sasretailservices.com',
+  'youradv.com',
+];
+
+const domainSet = new Set(CORPORATE_EMAIL_DOMAINS);
+
+/**
+ * @param {string} normalizedEmail — lowercased, trimmed
+ */
+export function isCorporateWorkDomainEmail(normalizedEmail) {
+  if (typeof normalizedEmail !== 'string' || !normalizedEmail) return false;
+  const at = normalizedEmail.lastIndexOf('@');
+  if (at < 1) return false;
+  const host = normalizedEmail.slice(at + 1);
+  return domainSet.has(host);
+}
+
+/**
+ * Human-readable list for UI/errors, e.g. "@retailodyssey.com, @youradv.com, …"
+ */
+export function corporateDomainListForMessage() {
+  return CORPORATE_EMAIL_DOMAINS.map((d) => `@${d}`).join(', ');
+}
 
 /**
  * @param {string} email — Trimmed/lowercased upstream is typical but not required.
@@ -18,7 +42,7 @@ export async function isEmailAllowed(email) {
   if (typeof email !== 'string' || !email) return false;
   const normalized = email.trim().toLowerCase();
   if (!normalized.includes('@')) return false;
-  if (normalized.endsWith('@' + CORPORATE_DOMAIN)) return true;
+  if (isCorporateWorkDomainEmail(normalized)) return true;
 
   try {
     const { rows } = await query(

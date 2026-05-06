@@ -640,6 +640,11 @@ body.admin-page .container {
   max-width: 880px;
 }
 .admin-lead .nobr { white-space: nowrap; }
+.admin-domain-list {
+  display: inline;
+  color: var(--text-muted);
+  font-weight: 500;
+}
 .admin-page button.primary,
 .admin-page .primary {
   min-height: 48px;

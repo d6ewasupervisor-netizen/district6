@@ -24,7 +24,7 @@ npm run dev
 The server listens on `PORT` (default `3000`), runs migrations on boot, and exposes:
 
 - `GET  /api/health` — health probe
-- `POST /api/request-link` — issue a tokenized link (rate-limited 5/hour/IP, `@retailodyssey.com` only)
+- `POST /api/request-link` — issue a tokenized link (rate-limited 5/hour/IP; approved work domains or allowlist)
 - `GET  /api/verify-token?token=…` — validate a token before showing the hub
 - `POST /api/submit` — submit name + signature, generate PDF, email receipt
 

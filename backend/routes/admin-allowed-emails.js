@@ -2,7 +2,10 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { query } from '../lib/db.js';
 import { requireAdmin } from '../lib/admin-auth.js';
-import { CORPORATE_DOMAIN } from '../lib/allowed-emails.js';
+import {
+  corporateDomainListForMessage,
+  isCorporateWorkDomainEmail,
+} from '../lib/allowed-emails.js';
 
 const router = express.Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,10 +45,11 @@ router.post('/', async (req, res) => {
     if (!email || !EMAIL_RE.test(email)) {
       return res.status(400).json({ ok: false, error: 'Enter a valid email address.' });
     }
-    if (email.endsWith(`@${CORPORATE_DOMAIN}`)) {
+    if (isCorporateWorkDomainEmail(email)) {
       return res.status(400).json({
         ok: false,
-        error: `Addresses @${CORPORATE_DOMAIN} are already allowed. No need to add them here.`,
+        error:
+          `Work addresses (${corporateDomainListForMessage()}) are already allowed. No need to add them here.`,
       });
     }
 
