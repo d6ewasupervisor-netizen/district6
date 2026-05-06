@@ -89,7 +89,8 @@ label {
 }
 
 input[type="email"],
-input[type="text"] {
+input[type="text"],
+input[type="password"] {
   width: 100%;
   padding: 12px 14px;
   font-size: 16px;
@@ -100,7 +101,8 @@ input[type="text"] {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 input[type="email"]:focus,
-input[type="text"]:focus {
+input[type="text"]:focus,
+input[type="password"]:focus {
   outline: none;
   border-color: var(--light-blue);
   box-shadow: 0 0 0 3px rgba(91, 168, 224, 0.20);
@@ -627,4 +629,136 @@ body.pdf-viewer-open { overflow: hidden; }
   .pdf-viewer-download { padding: 6px 10px; }
   .pdf-viewer-title { font-size: 15px; }
   .pdf-viewer-hint { font-size: 13px; padding: 8px 14px; }
+}
+
+/* Admin allowlist page */
+body.admin-page .container {
+  padding-top: max(20px, env(safe-area-inset-top, 0px));
+  padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+}
+.admin-page .container {
+  max-width: 880px;
+}
+.admin-lead .nobr { white-space: nowrap; }
+.admin-page button.primary,
+.admin-page .primary {
+  min-height: 48px;
+}
+.admin-back-link {
+  margin-top: 28px;
+  font-size: 14px;
+}
+.admin-back-link a {
+  color: var(--navy);
+}
+.admin-signed-in-bar .admin-session-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-session-label {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.admin-signout-btn {
+  flex: 0 0 auto;
+  padding: 12px 18px;
+  min-height: 44px;
+  margin-top: 0;
+}
+.admin-touch-btn {
+  min-height: 44px;
+  padding: 10px 14px;
+}
+.admin-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.admin-table th,
+.admin-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.admin-table th {
+  font-weight: 600;
+  color: var(--navy);
+  background: var(--light-blue-soft);
+}
+.admin-table tbody tr:last-child td { border-bottom: none; }
+.admin-col-action { width: 110px; text-align: right; }
+.admin-table th.admin-col-action { text-align: right; }
+.admin-remove-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--error);
+  background: #fff;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.admin-remove-btn:hover { background: var(--error-bg); }
+.admin-muted { color: var(--text-muted); }
+#admin-banner { margin-bottom: 16px; }
+
+@media (max-width: 560px) {
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .admin-table tbody tr {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    background: var(--card);
+  }
+  .admin-table td {
+    display: block;
+    padding: 8px 0;
+    border-bottom: none;
+    text-align: left;
+  }
+  .admin-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 2px;
+    text-transform: none;
+  }
+  .admin-table td[data-label=""]::before {
+    content: none;
+  }
+  .admin-col-action {
+    width: auto;
+    text-align: left !important;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+  .admin-remove-btn {
+    width: 100%;
+  }
 }

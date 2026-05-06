@@ -26,7 +26,7 @@ router.post('/', limiter, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Please enter a valid email address.' });
     }
 
-    if (!isEmailAllowed(email)) {
+    if (!(await isEmailAllowed(email))) {
       return res.status(400).json({
         ok: false,
         error: 'This email is not on the access list. Contact your supervisor if you believe this is in error.',

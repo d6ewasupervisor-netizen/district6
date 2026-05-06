@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { runMigrations } from './lib/db.js';
+import adminSessionRouter from './routes/admin-session.js';
+import adminAllowedEmailsRouter from './routes/admin-allowed-emails.js';
 import requestLinkRouter from './routes/request-link.js';
 import verifyTokenRouter from './routes/verify-token.js';
 import submitRouter from './routes/submit.js';
@@ -46,6 +48,8 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
 });
 
+app.use('/api/admin/session', adminSessionRouter);
+app.use('/api/admin/allowed-emails', adminAllowedEmailsRouter);
 app.use('/api/request-link', requestLinkRouter);
 app.use('/api/verify-token', verifyTokenRouter);
 app.use('/api/submit', submitRouter);

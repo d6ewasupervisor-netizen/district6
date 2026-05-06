@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>District 6 — Access list (admin)</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body class="admin-page">
+  <main class="container">
+    <div class="brand">
+      <img src="assets/logo.png" alt="Retail Odyssey" />
+    </div>
+
+    <h1>Access list</h1>
+    <p class="lead admin-lead">
+      Add or remove personal (non-<span class="nobr">@retailodyssey.com</span>) emails.
+      Retail Odyssey work emails never need to be listed here.
+    </p>
+
+    <section id="gate-loading" class="card" aria-busy="true">
+      <p class="help-text" style="margin: 0;">Checking sign-in…</p>
+    </section>
+
+    <div id="gate-auth" class="hidden">
+      <section id="blocked-section" class="card hidden" aria-live="polite">
+        <h2>Setup not ready</h2>
+        <p id="blocked-message" class="help-text" style="margin-top: 0;"></p>
+      </section>
+
+      <section id="setup-section" class="card hidden" aria-labelledby="setup-heading">
+        <h2 id="setup-heading">Create your admin password</h2>
+        <p class="help-text" style="margin-top: 0;">
+          One-time: enter the setup code your IT contact sent you, then choose a password you will use on this page from now on (including on your phone).
+        </p>
+        <div id="setup-status" class="notice hidden" role="alert"></div>
+        <label for="setup-code">One-time setup code</label>
+        <input
+          id="setup-code"
+          type="text"
+          autocomplete="one-time-code"
+          inputmode="text"
+          spellcheck="false"
+          autocapitalize="off"
+        />
+        <label for="setup-password">New password</label>
+        <input
+          id="setup-password"
+          type="password"
+          autocomplete="new-password"
+          spellcheck="false"
+        />
+        <label for="setup-password-confirm">Confirm password</label>
+        <input
+          id="setup-password-confirm"
+          type="password"
+          autocomplete="new-password"
+          spellcheck="false"
+        />
+        <button id="setup-submit" class="primary" type="button">Save and continue</button>
+      </section>
+
+      <section id="login-section" class="card hidden" aria-labelledby="login-heading">
+        <h2 id="login-heading">Sign in</h2>
+        <p class="help-text" style="margin-top: 0;">
+          Use your Retail Odyssey supervisor email and the password you created.
+        </p>
+        <div id="login-status" class="notice hidden" role="alert"></div>
+        <label for="login-email">Email</label>
+        <input
+          id="login-email"
+          type="email"
+          autocomplete="username"
+          inputmode="email"
+          spellcheck="false"
+          autocapitalize="none"
+        />
+        <label for="login-password">Password</label>
+        <input
+          id="login-password"
+          type="password"
+          autocomplete="current-password"
+          spellcheck="false"
+        />
+        <button id="login-submit" class="primary" type="button">Sign in</button>
+      </section>
+    </div>
+
+    <div id="admin-panel" class="hidden">
+      <section class="card admin-signed-in-bar" aria-label="Session">
+        <div class="admin-session-row">
+          <p class="admin-session-label" id="signed-in-as"></p>
+          <button id="lock-btn" type="button" class="secondary admin-signout-btn">Sign out</button>
+        </div>
+      </section>
+      <div id="admin-banner" class="notice hidden" role="status" aria-live="polite"></div>
+      <section class="card" aria-labelledby="add-heading">
+        <h2 id="add-heading">Add or update someone</h2>
+        <div id="add-status" class="notice hidden" role="status" aria-live="polite"></div>
+        <label for="new-email">Email</label>
+        <input
+          id="new-email"
+          type="email"
+          autocomplete="off"
+          inputmode="email"
+          spellcheck="false"
+          autocapitalize="none"
+        />
+        <label for="new-note">Name / note <span style="font-weight: 400;">(optional)</span></label>
+        <input id="new-note" type="text" maxlength="500" autocomplete="off" spellcheck="true" placeholder="Teammate name" />
+        <button id="add-btn" class="primary" type="button">Save to list</button>
+      </section>
+
+      <section class="card" aria-labelledby="list-heading">
+        <h2 id="list-heading">Current extra addresses</h2>
+        <p id="list-loading" class="help-text">Loading…</p>
+        <div id="list-empty" class="help-text hidden">No personal addresses on file. Only @retailodyssey.com teammates can request links until you add someone.</div>
+        <div class="admin-table-wrap hidden" id="table-wrap">
+          <table class="admin-table" aria-label="Allowed personal emails">
+            <thead>
+              <tr>
+                <th scope="col">Email</th>
+                <th scope="col">Note</th>
+                <th scope="col" class="admin-col-action">Remove</th>
+              </tr>
+            </thead>
+            <tbody id="list-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <p class="lead admin-back-link">
+      <a href="index.html">← Back to compliance hub</a>
+    </p>
+
+    <footer>
+      District 6 Compliance Hub · Admin
+    </footer>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
