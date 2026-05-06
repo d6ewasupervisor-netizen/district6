@@ -54,6 +54,19 @@
   const listEmptyEl = document.getElementById('list-empty');
   const tableWrapEl = document.getElementById('table-wrap');
   const listBodyEl = document.getElementById('list-body');
+  const listToolbarEl = document.getElementById('list-toolbar');
+  const listSearchEl = document.getElementById('list-search');
+  const listFilterEl = document.getElementById('list-filter');
+  const listCountEl = document.getElementById('list-count');
+  const listNoMatchesEl = document.getElementById('list-no-matches');
+  const listSortHintEl = document.getElementById('list-sort-hint');
+
+  /** @type {Array<{email: string, note: string|null, created_at?: string, updated_at?: string}>} */
+  let allowlistCache = [];
+  const listViewState = {
+    sortKey: 'email',
+    sortDir: 'asc',
+  };
 
   function getJwt() {
     try {
@@ -224,26 +237,136 @@
     await openAuthFlowFromStatus();
   }
 
-  function renderRows(rows) {
-    listBodyEl.innerHTML = '';
-    if (!rows || !rows.length) {
-      show(listEmptyEl);
-      hide(tableWrapEl);
-      return;
-    }
-    hide(listEmptyEl);
-    show(tableWrapEl);
+  function normalizeAllowlist(rows) {
+    return (rows || []).map(function (r) {
+      const note =
+        r && r.note != null && String(r.note).trim() ? String(r.note).trim() : null;
+      return {
+        email: (r.email || '').trim().toLowerCase(),
+        note: note,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+      };
+    });
+  }
 
+  function formatUpdatedCell(row) {
+    const raw = row.updated_at || row.created_at;
+    if (!raw) return '—';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+
+  function rowMatchesFilters(row, queryNorm, noteFilter) {
+    if (noteFilter === 'with_note' && !row.note) return false;
+    if (noteFilter === 'no_note' && row.note) return false;
+    if (!queryNorm) return true;
+    const hay = (row.email + ' ' + (row.note || '')).toLowerCase();
+    return hay.indexOf(queryNorm) !== -1;
+  }
+
+  function sortComparable(row, sortKey) {
+    if (sortKey === 'email') return String(row.email || '').toLowerCase();
+    if (sortKey === 'note') return String(row.note || '').toLowerCase();
+    if (sortKey === 'updated_at') {
+      const t = Date.parse(row.updated_at || row.created_at || '');
+      return Number.isNaN(t) ? 0 : t;
+    }
+    return '';
+  }
+
+  function getFilteredSortedRows() {
+    const queryNorm = (listSearchEl.value || '').trim().toLowerCase();
+    const noteFilter = listFilterEl.value || 'all';
+
+    let rows = allowlistCache.filter(function (row) {
+      return rowMatchesFilters(row, queryNorm, noteFilter);
+    });
+
+    const sk = listViewState.sortKey;
+    const sd = listViewState.sortDir;
+    rows.sort(function (a, b) {
+      const va = sortComparable(a, sk);
+      const vb = sortComparable(b, sk);
+      let cmp = 0;
+      if (sk === 'updated_at') {
+        cmp = va - vb;
+      } else {
+        cmp = String(va).localeCompare(String(vb), undefined, { sensitivity: 'base' });
+      }
+      return sd === 'asc' ? cmp : -cmp;
+    });
+    return rows;
+  }
+
+  function updateSortHeaderUI() {
+    const labels = { email: 'Email', note: 'Note / name', updated_at: 'Updated' };
+    document.querySelectorAll('.admin-th-sort').forEach(function (btn) {
+      const key = btn.getAttribute('data-sort');
+      const active = key === listViewState.sortKey;
+      const ind = btn.querySelector('.admin-sort-ind');
+      const th = btn.closest('th');
+      if (!th || !ind) return;
+      if (active) {
+        th.setAttribute(
+          'aria-sort',
+          listViewState.sortDir === 'asc' ? 'ascending' : 'descending',
+        );
+        ind.textContent = listViewState.sortDir === 'asc' ? '▲' : '▼';
+      } else {
+        th.removeAttribute('aria-sort');
+        ind.textContent = '';
+      }
+    });
+
+    let dirPhrase;
+    if (listViewState.sortKey === 'updated_at') {
+      dirPhrase =
+        listViewState.sortDir === 'asc' ? 'oldest first' : 'newest first';
+    } else {
+      dirPhrase = listViewState.sortDir === 'asc' ? 'A→Z' : 'Z→A';
+    }
+    listSortHintEl.textContent =
+      'Sorted by ' + labels[listViewState.sortKey] + ' (' + dirPhrase + ')';
+  }
+
+  function onSortHeaderClick(sortKey) {
+    if (!sortKey) return;
+    if (listViewState.sortKey === sortKey) {
+      listViewState.sortDir = listViewState.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      listViewState.sortKey = sortKey;
+      listViewState.sortDir = sortKey === 'updated_at' ? 'desc' : 'asc';
+    }
+    applyAllowlistView();
+  }
+
+  function renderTableRows(rows) {
+    listBodyEl.innerHTML = '';
     rows.forEach(function (row) {
       const tr = document.createElement('tr');
       const tdEmail = document.createElement('td');
       tdEmail.setAttribute('data-label', 'Email');
       tdEmail.textContent = row.email;
+
       const tdNote = document.createElement('td');
-      tdNote.setAttribute('data-label', 'Note');
-      tdNote.textContent = row.note || '';
-      tdNote.className = tdNote.textContent ? '' : 'admin-muted';
-      if (!tdNote.textContent) tdNote.textContent = '—';
+      tdNote.setAttribute('data-label', 'Note / name');
+      if (row.note) {
+        tdNote.textContent = row.note;
+      } else {
+        tdNote.textContent = '—';
+        tdNote.className = 'admin-muted';
+      }
+
+      const tdUpd = document.createElement('td');
+      tdUpd.setAttribute('data-label', 'Updated');
+      tdUpd.className = 'admin-col-updated admin-muted';
+      tdUpd.textContent = formatUpdatedCell(row);
 
       const tdRm = document.createElement('td');
       tdRm.className = 'admin-col-action';
@@ -261,9 +384,58 @@
 
       tr.appendChild(tdEmail);
       tr.appendChild(tdNote);
+      tr.appendChild(tdUpd);
       tr.appendChild(tdRm);
       listBodyEl.appendChild(tr);
     });
+  }
+
+  function applyAllowlistView() {
+    if (allowlistCache.length === 0) {
+      hide(listToolbarEl);
+      hide(listCountEl);
+      hide(listNoMatchesEl);
+      listSortHintEl.textContent = '';
+      show(listEmptyEl);
+      hide(tableWrapEl);
+      return;
+    }
+
+    hide(listEmptyEl);
+
+    updateSortHeaderUI();
+    show(listToolbarEl);
+
+    const filtered = getFilteredSortedRows();
+    const plural = allowlistCache.length === 1 ? 'address' : 'addresses';
+
+    show(listCountEl);
+    hide(listNoMatchesEl);
+
+    if (filtered.length !== allowlistCache.length ||
+        (listSearchEl.value || '').trim() ||
+        (listFilterEl.value || 'all') !== 'all') {
+      listCountEl.textContent =
+        'Showing ' +
+        filtered.length +
+        ' of ' +
+        allowlistCache.length +
+        ' ' +
+        plural +
+        '.';
+    } else {
+      listCountEl.textContent = allowlistCache.length + ' ' + plural + '.';
+    }
+
+    if (filtered.length === 0) {
+      show(listNoMatchesEl);
+      hide(tableWrapEl);
+      return;
+    }
+
+    hide(listNoMatchesEl);
+    show(tableWrapEl);
+    renderTableRows(filtered);
   }
 
   async function refreshList() {
@@ -272,6 +444,7 @@
     listLoadingEl.textContent = 'Loading…';
     hide(tableWrapEl);
     hide(listEmptyEl);
+    hide(listNoMatchesEl);
 
     try {
       const res = await fetch(API_BASE + '/api/admin/allowed-emails', {
@@ -291,7 +464,8 @@
         showBanner('error', data.error || 'Could not load the list.');
         return;
       }
-      renderRows(data.emails);
+      allowlistCache = normalizeAllowlist(data.emails);
+      applyAllowlistView();
     } catch (_err) {
       hide(listLoadingEl);
       showBanner('error', 'Network error. Check your connection and API URL.');
@@ -650,6 +824,14 @@
   resetSubmit.addEventListener('click', submitResetPassword);
 
   changeSubmit.addEventListener('click', submitChangePassword);
+
+  listSearchEl.addEventListener('input', applyAllowlistView);
+  listFilterEl.addEventListener('change', applyAllowlistView);
+  document.querySelectorAll('.admin-th-sort').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      onSortHeaderClick(btn.getAttribute('data-sort'));
+    });
+  });
 
   setupSubmit.addEventListener('click', submitSetup);
   loginSubmit.addEventListener('click', submitLogin);

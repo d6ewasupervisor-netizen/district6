@@ -735,7 +735,99 @@ body.admin-page .container {
 .admin-muted { color: var(--text-muted); }
 #admin-banner { margin-bottom: 16px; }
 
+.admin-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 14px 0 16px;
+}
+.admin-list-toolbar.hidden { display: none !important; }
+.admin-toolbar-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.admin-toolbar-grow {
+  flex: 1 1 260px;
+}
+.admin-search-label,
+.admin-filter-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+.admin-search-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.admin-search-input:focus {
+  outline: none;
+  border-color: var(--light-blue);
+  box-shadow: 0 0 0 3px rgba(91, 168, 224, 0.2);
+}
+.admin-filter-select {
+  width: 100%;
+  min-width: 180px;
+  padding: 12px 14px;
+  font-size: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+.admin-list-count {
+  margin-bottom: 4px;
+}
+
+.admin-th-sort-wrap {
+  vertical-align: middle;
+}
+.admin-th-sort {
+  appearance: none;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--navy);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.admin-th-sort:hover {
+  background: rgba(91, 168, 224, 0.15);
+}
+.admin-th-sort:focus {
+  outline: 2px solid var(--light-blue);
+  outline-offset: 2px;
+}
+.admin-sort-ind {
+  font-size: 11px;
+  opacity: 0.85;
+}
+.admin-col-updated {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-sort-mobile-hint {
+  display: none;
+  margin-top: 0;
+}
+
 @media (max-width: 560px) {
+  .admin-table-wrap .admin-sort-mobile-hint {
+    display: block;
+  }
   .admin-table thead {
     position: absolute;
     width: 1px;

@@ -175,13 +175,51 @@
       <section class="card" aria-labelledby="list-heading">
         <h2 id="list-heading">Current extra addresses</h2>
         <p id="list-loading" class="help-text">Loading…</p>
+        <p id="list-count" class="help-text admin-list-count hidden" aria-live="polite"></p>
         <div id="list-empty" class="help-text hidden">No extra personal addresses on file. Teammates with @retailodyssey.com, @sasretailservices.com, @youradv.com, or @advantagesolutions.net can already request links until you add someone else here.</div>
+        <div id="list-no-matches" class="help-text hidden">No rows match your search or filter. Try clearing the search box or choosing “All entries.”</div>
+        <div class="admin-list-toolbar hidden" id="list-toolbar">
+          <div class="admin-toolbar-field admin-toolbar-grow">
+            <label class="admin-search-label" for="list-search">Search</label>
+            <input
+              id="list-search"
+              type="search"
+              class="admin-search-input"
+              placeholder="Search email or note…"
+              autocomplete="off"
+              spellcheck="false"
+              enterkeyhint="search"
+            />
+          </div>
+          <div class="admin-toolbar-field">
+            <label class="admin-filter-label" for="list-filter">Show</label>
+            <select id="list-filter" class="admin-filter-select">
+              <option value="all">All entries</option>
+              <option value="with_note">Has a note only</option>
+              <option value="no_note">No note only</option>
+            </select>
+          </div>
+        </div>
         <div class="admin-table-wrap hidden" id="table-wrap">
-          <table class="admin-table" aria-label="Allowed personal emails">
+          <p class="admin-sort-mobile-hint help-text" id="list-sort-hint"></p>
+          <table class="admin-table" aria-label="Allowed personal emails" id="allowlist-table">
             <thead>
-              <tr>
-                <th scope="col">Email</th>
-                <th scope="col">Note</th>
+              <tr id="list-head-row">
+                <th scope="col" class="admin-th-sort-wrap" data-sort-key="email">
+                  <button type="button" class="admin-th-sort" data-sort="email" id="sort-email">
+                    Email <span class="admin-sort-ind" aria-hidden="true"></span>
+                  </button>
+                </th>
+                <th scope="col" class="admin-th-sort-wrap" data-sort-key="note">
+                  <button type="button" class="admin-th-sort" data-sort="note" id="sort-note">
+                    Note / name <span class="admin-sort-ind" aria-hidden="true"></span>
+                  </button>
+                </th>
+                <th scope="col" class="admin-th-sort-wrap admin-th-sort-wrap-meta" data-sort-key="updated_at">
+                  <button type="button" class="admin-th-sort" data-sort="updated_at" id="sort-updated">
+                    Updated <span class="admin-sort-ind" aria-hidden="true"></span>
+                  </button>
+                </th>
                 <th scope="col" class="admin-col-action">Remove</th>
               </tr>
             </thead>
