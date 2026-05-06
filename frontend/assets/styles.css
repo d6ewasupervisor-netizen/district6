@@ -668,11 +668,28 @@ body.admin-page .container {
   font-size: 14px;
   color: var(--text-muted);
 }
-.admin-signout-btn {
-  flex: 0 0 auto;
-  padding: 12px 18px;
+.admin-inline-link {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--navy);
+  background: transparent;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
   min-height: 44px;
-  margin-top: 0;
+}
+.admin-inline-link:focus {
+  outline: 2px solid var(--light-blue);
+  outline-offset: 2px;
+}
+.admin-cancel-btn {
+  width: 100%;
+  margin-top: 14px;
 }
 .admin-touch-btn {
   min-height: 44px;

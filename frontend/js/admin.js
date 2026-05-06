@@ -21,10 +21,30 @@
   const loginPwEl = document.getElementById('login-password');
   const loginStatusEl = document.getElementById('login-status');
   const loginSubmit = document.getElementById('login-submit');
+  const loginForgotLink = document.getElementById('login-forgot-link');
+
+  const forgotSection = document.getElementById('forgot-section');
+  const forgotEmailEl = document.getElementById('forgot-email');
+  const forgotStatusEl = document.getElementById('forgot-status');
+  const forgotSubmit = document.getElementById('forgot-submit');
+  const forgotBack = document.getElementById('forgot-back');
+
+  const resetSection = document.getElementById('reset-section');
+  const resetTokenFieldEl = document.getElementById('reset-token-field');
+  const resetNewPwEl = document.getElementById('reset-new-password');
+  const resetNewPw2El = document.getElementById('reset-new-password-confirm');
+  const resetStatusEl = document.getElementById('reset-status');
+  const resetSubmit = document.getElementById('reset-submit');
+  const resetBack = document.getElementById('reset-back');
 
   const adminPanel = document.getElementById('admin-panel');
   const signedInAsEl = document.getElementById('signed-in-as');
   const lockBtn = document.getElementById('lock-btn');
+  const changeCurrentPwEl = document.getElementById('change-current');
+  const changeNewPwEl = document.getElementById('change-new');
+  const changeNewPw2El = document.getElementById('change-new2');
+  const changePwStatusEl = document.getElementById('change-pw-status');
+  const changeSubmit = document.getElementById('change-submit');
   const newEmailEl = document.getElementById('new-email');
   const newNoteEl = document.getElementById('new-note');
   const addBtn = document.getElementById('add-btn');
@@ -103,10 +123,24 @@
     show(adminPanel);
   }
 
+  function takeResetTokenFromUrl() {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const t = (p.get('reset') || '').trim();
+      if (!t) return '';
+      window.history.replaceState({}, '', window.location.pathname);
+      return t;
+    } catch (_e) {
+      return '';
+    }
+  }
+
   function resetAuthSections() {
     hide(blockedSection);
     hide(setupSection);
     hide(loginSection);
+    hide(forgotSection);
+    hide(resetSection);
   }
 
   async function verifySession() {
@@ -154,6 +188,8 @@
 
       show(loginSection);
       loginEmailEl.value = '';
+      hideNotice(forgotStatusEl);
+      hideNotice(resetStatusEl);
       loginPwEl.focus();
     } catch (_err) {
       show(blockedSection);
@@ -163,6 +199,21 @@
   }
 
   async function init() {
+    const resetTok = takeResetTokenFromUrl();
+    if (resetTok) {
+      clearJwt();
+      hide(gateLoading);
+      showAuthGate();
+      hideNotice(resetStatusEl);
+      resetAuthSections();
+      show(resetSection);
+      resetTokenFieldEl.value = resetTok;
+      resetNewPwEl.value = '';
+      resetNewPw2El.value = '';
+      resetNewPwEl.focus();
+      return;
+    }
+
     showGateLoading();
     if (await verifySession()) {
       showPanel();
@@ -409,12 +460,196 @@
     loginSubmit.textContent = 'Sign in';
   }
 
+  async function submitForgotPassword() {
+    hideNotice(forgotStatusEl);
+    const email = (forgotEmailEl.value || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showNotice(forgotStatusEl, 'error', 'Enter a valid email address.');
+      return;
+    }
+    forgotSubmit.disabled = true;
+    forgotSubmit.textContent = 'Sending…';
+    try {
+      const res = await fetch(API_BASE + '/api/admin/session/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showNotice(forgotStatusEl, 'error', data.error || 'Could not send reset email.');
+        forgotSubmit.disabled = false;
+        forgotSubmit.textContent = 'Send reset link';
+        return;
+      }
+      showNotice(
+        forgotStatusEl,
+        'ok',
+        data.message ||
+          'If this email is registered as an administrator, you will receive a link shortly.',
+      );
+    } catch (_err) {
+      showNotice(forgotStatusEl, 'error', 'Network error.');
+    }
+    forgotSubmit.disabled = false;
+    forgotSubmit.textContent = 'Send reset link';
+  }
+
+  async function submitResetPassword() {
+    hideNotice(resetStatusEl);
+    const token = (resetTokenFieldEl.value || '').trim();
+    const pw = resetNewPwEl.value || '';
+    const pw2 = resetNewPw2El.value || '';
+    if (!token || token.length < 24) {
+      showNotice(
+        resetStatusEl,
+        'error',
+        'This reset session is missing or expired. Request a new link from Sign in.',
+      );
+      return;
+    }
+    if (pw.length < 10) {
+      showNotice(resetStatusEl, 'error', 'Use at least 10 characters.');
+      return;
+    }
+    if (pw !== pw2) {
+      showNotice(resetStatusEl, 'error', 'Passwords do not match.');
+      return;
+    }
+    resetSubmit.disabled = true;
+    resetSubmit.textContent = 'Saving…';
+    try {
+      const res = await fetch(API_BASE + '/api/admin/session/complete-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: token,
+          password: pw,
+          passwordConfirm: pw2,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showNotice(resetStatusEl, 'error', data.error || 'Could not reset password.');
+        resetSubmit.disabled = false;
+        resetSubmit.textContent = 'Save password and continue';
+        return;
+      }
+      setJwt(data.token);
+      signedInAsEl.textContent = 'Signed in as ' + (data.email || '');
+      resetTokenFieldEl.value = '';
+      resetNewPwEl.value = '';
+      resetNewPw2El.value = '';
+      hide(resetSection);
+      showPanel();
+      await refreshList();
+    } catch (_err) {
+      showNotice(resetStatusEl, 'error', 'Network error.');
+    }
+    resetSubmit.disabled = false;
+    resetSubmit.textContent = 'Save password and continue';
+  }
+
+  async function submitChangePassword() {
+    hideNotice(changePwStatusEl);
+    const cur = changeCurrentPwEl.value || '';
+    const pw = changeNewPwEl.value || '';
+    const pw2 = changeNewPw2El.value || '';
+    if (!cur) {
+      showNotice(changePwStatusEl, 'error', 'Enter your current password.');
+      return;
+    }
+    if (pw.length < 10) {
+      showNotice(changePwStatusEl, 'error', 'Use at least 10 characters for your new password.');
+      return;
+    }
+    if (pw !== pw2) {
+      showNotice(changePwStatusEl, 'error', 'New passwords do not match.');
+      return;
+    }
+    changeSubmit.disabled = true;
+    changeSubmit.textContent = 'Updating…';
+    try {
+      const res = await fetch(API_BASE + '/api/admin/session/password', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          currentPassword: cur,
+          newPassword: pw,
+          newPasswordConfirm: pw2,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        clearJwt();
+        hideNotice(changePwStatusEl);
+        changeCurrentPwEl.value = '';
+        changeNewPwEl.value = '';
+        changeNewPw2El.value = '';
+        await openAuthFlowFromStatus();
+        showNotice(loginStatusEl, 'error', 'Session expired. Sign in again.');
+        changeSubmit.disabled = false;
+        changeSubmit.textContent = 'Update password';
+        return;
+      }
+      if (!res.ok || !data.ok) {
+        showNotice(changePwStatusEl, 'error', data.error || 'Could not update password.');
+        changeSubmit.disabled = false;
+        changeSubmit.textContent = 'Update password';
+        return;
+      }
+      showNotice(changePwStatusEl, 'ok', 'Password updated. Use it next time you sign in.');
+      changeCurrentPwEl.value = '';
+      changeNewPwEl.value = '';
+      changeNewPw2El.value = '';
+    } catch (_err) {
+      showNotice(changePwStatusEl, 'error', 'Network error.');
+    }
+    changeSubmit.disabled = false;
+    changeSubmit.textContent = 'Update password';
+  }
+
   lockBtn.addEventListener('click', function () {
     clearJwt();
     hideBanner();
     hideNotice(addStatusEl);
+    hideNotice(changePwStatusEl);
+    changeCurrentPwEl.value = '';
+    changeNewPwEl.value = '';
+    changeNewPw2El.value = '';
     openAuthFlowFromStatus();
   });
+
+  loginForgotLink.addEventListener('click', function () {
+    hideNotice(loginStatusEl);
+    hide(loginSection);
+    show(forgotSection);
+    forgotEmailEl.value = (loginEmailEl.value || '').trim();
+    hideNotice(forgotStatusEl);
+    forgotEmailEl.focus();
+  });
+
+  forgotBack.addEventListener('click', function () {
+    hideNotice(forgotStatusEl);
+    hide(forgotSection);
+    show(loginSection);
+    loginPwEl.focus();
+  });
+
+  forgotSubmit.addEventListener('click', submitForgotPassword);
+
+  resetBack.addEventListener('click', async function () {
+    hideNotice(resetStatusEl);
+    resetTokenFieldEl.value = '';
+    resetNewPwEl.value = '';
+    resetNewPw2El.value = '';
+    hide(resetSection);
+    await openAuthFlowFromStatus();
+  });
+
+  resetSubmit.addEventListener('click', submitResetPassword);
+
+  changeSubmit.addEventListener('click', submitChangePassword);
 
   setupSubmit.addEventListener('click', submitSetup);
   loginSubmit.addEventListener('click', submitLogin);

@@ -87,6 +87,51 @@
           spellcheck="false"
         />
         <button id="login-submit" class="primary" type="button">Sign in</button>
+        <button id="login-forgot-link" type="button" class="admin-inline-link">Forgot password?</button>
+      </section>
+
+      <section id="forgot-section" class="card hidden" aria-labelledby="forgot-heading">
+        <h2 id="forgot-heading">Reset password</h2>
+        <p class="help-text" style="margin-top: 0;">
+          Enter your admin email. If it matches an administrator account, you will receive a reset link that works for about one hour.
+        </p>
+        <div id="forgot-status" class="notice hidden" role="alert"></div>
+        <label for="forgot-email">Email</label>
+        <input
+          id="forgot-email"
+          type="email"
+          autocomplete="username"
+          inputmode="email"
+          spellcheck="false"
+          autocapitalize="none"
+        />
+        <button id="forgot-submit" class="primary" type="button">Send reset link</button>
+        <button id="forgot-back" type="button" class="secondary admin-cancel-btn">Back to sign in</button>
+      </section>
+
+      <section id="reset-section" class="card hidden" aria-labelledby="reset-heading">
+        <h2 id="reset-heading">Choose a new password</h2>
+        <p class="help-text" style="margin-top: 0;">
+          You arrived from your email reset link. Pick a strong password, then you will be signed in.
+        </p>
+        <div id="reset-status" class="notice hidden" role="alert"></div>
+        <input type="hidden" id="reset-token-field" />
+        <label for="reset-new-password">New password</label>
+        <input
+          id="reset-new-password"
+          type="password"
+          autocomplete="new-password"
+          spellcheck="false"
+        />
+        <label for="reset-new-password-confirm">Confirm new password</label>
+        <input
+          id="reset-new-password-confirm"
+          type="password"
+          autocomplete="new-password"
+          spellcheck="false"
+        />
+        <button id="reset-submit" class="primary" type="button">Save password and continue</button>
+        <button id="reset-back" type="button" class="secondary admin-cancel-btn">Back to sign in</button>
       </section>
     </div>
 
@@ -98,6 +143,18 @@
         </div>
       </section>
       <div id="admin-banner" class="notice hidden" role="status" aria-live="polite"></div>
+      <section class="card" aria-labelledby="change-pw-heading">
+        <h2 id="change-pw-heading">Change password</h2>
+        <p class="help-text" style="margin-top: 0;">Use your current password once, then your new password for next time.</p>
+        <div id="change-pw-status" class="notice hidden" role="alert"></div>
+        <label for="change-current">Current password</label>
+        <input id="change-current" type="password" autocomplete="current-password" spellcheck="false" />
+        <label for="change-new">New password</label>
+        <input id="change-new" type="password" autocomplete="new-password" spellcheck="false" />
+        <label for="change-new2">Confirm new password</label>
+        <input id="change-new2" type="password" autocomplete="new-password" spellcheck="false" />
+        <button id="change-submit" class="primary" type="button">Update password</button>
+      </section>
       <section class="card" aria-labelledby="add-heading">
         <h2 id="add-heading">Add or update someone</h2>
         <div id="add-status" class="notice hidden" role="status" aria-live="polite"></div>

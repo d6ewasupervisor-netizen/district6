@@ -38,6 +38,15 @@ export async function setPasswordHashIfUnset(emailNorm, passwordHash) {
   return rowCount > 0;
 }
 
+export async function setPasswordHashForEmail(emailNorm, passwordHash) {
+  const { rowCount } = await query(
+    `UPDATE site_admins SET password_hash = $1, password_set_at = NOW()
+     WHERE lower(trim(email)) = $2`,
+    [passwordHash, emailNorm],
+  );
+  return rowCount > 0;
+}
+
 /**
  * @returns {string|null}
  */
