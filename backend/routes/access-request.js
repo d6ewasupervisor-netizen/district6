@@ -1,9 +1,11 @@
 import express from 'express';
+import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import { isEmailAllowed, isCorporateWorkDomainEmail, corporateDomainListForMessage } from '../lib/allowed-emails.js';
+import { newRequestId, createAccessRequest } from '../lib/access-requests-db.js';
+import { sendAccessRequestApprovalEmail } from '../lib/email.js';
 
 const router = express.Router();
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const limiter = rateLimit({
@@ -13,6 +15,27 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { ok: false, error: 'Too many requests. Try again later.' },
 });
+
+function getApprovers() {
+  return (process.env.ACCESS_REQUEST_APPROVERS
+    || 'tyson.gauthier@retailodyssey.com,april.gauthier@retailodyssey.com')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function computeDecisionToken(id, action, approverEmail) {
+  const secret = process.env.ACCESS_REQUEST_SECRET;
+  if (!secret) throw new Error('ACCESS_REQUEST_SECRET is not configured');
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${id}|${action}|${approverEmail}`)
+    .digest('hex');
+}
+
+function buildDecisionUrl(id, action, approverEmail) {
+  const base = (process.env.BACKEND_BASE_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN || 'district6-production.up.railway.app'}`).replace(/\/+$/, '');
+  const token = computeDecisionToken(id, action, approverEmail);
+  return `${base}/api/access-requests/${encodeURIComponent(id)}/${action}?token=${token}&by=${encodeURIComponent(approverEmail)}`;
+}
 
 router.post('/', limiter, async (req, res) => {
   try {
@@ -29,50 +52,34 @@ router.post('/', limiter, async (req, res) => {
     if (!name) {
       return res.status(400).json({ ok: false, error: 'Please enter your full name.' });
     }
-
     if (isCorporateWorkDomainEmail(email)) {
       return res.status(400).json({
         ok: false,
-        error: `Work addresses (${corporateDomainListForMessage()}) are automatically allowed. Try requesting your link directly on the main page.`,
+        error: `Work addresses (${corporateDomainListForMessage()}) are automatically allowed. Go back and request your link directly.`,
       });
     }
-
-    const alreadyAllowed = await isEmailAllowed(email);
-    if (alreadyAllowed) {
+    if (await isEmailAllowed(email)) {
       return res.status(400).json({
         ok: false,
         error: 'This email is already on the access list. Go back and request your link directly.',
       });
     }
 
-    const flowAutomationUrl = (process.env.FLOW_AUTOMATION_URL || '').replace(/\/+$/, '');
-    if (!flowAutomationUrl) {
-      console.error('[access-request] FLOW_AUTOMATION_URL is not set');
-      return res.status(500).json({ ok: false, error: 'Service misconfiguration. Please contact your supervisor.' });
+    const id = newRequestId();
+    await createAccessRequest({ id, name, email, reason });
+
+    const approvers = getApprovers();
+    for (const approverEmail of approvers) {
+      const approveUrl = buildDecisionUrl(id, 'approve', approverEmail);
+      const denyUrl = buildDecisionUrl(id, 'deny', approverEmail);
+      try {
+        await sendAccessRequestApprovalEmail({ record: { id, name, email, reason }, approverEmail, approveUrl, denyUrl });
+      } catch (err) {
+        console.error(`[access-request] failed to email approver ${approverEmail}:`, err);
+      }
     }
 
-    const serviceToken = process.env.ACCESS_REQUEST_SERVICE_TOKEN || '';
-    if (!serviceToken) {
-      console.error('[access-request] ACCESS_REQUEST_SERVICE_TOKEN is not set');
-      return res.status(500).json({ ok: false, error: 'Service misconfiguration. Please contact your supervisor.' });
-    }
-
-    const faRes = await fetch(`${flowAutomationUrl}/access-requests`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Service-Token': serviceToken,
-      },
-      body: JSON.stringify({ name, email, reason }),
-    });
-
-    if (!faRes.ok) {
-      const faBody = await faRes.json().catch(() => ({}));
-      console.error('[access-request] flow-automation error', faRes.status, faBody);
-      return res.status(500).json({ ok: false, error: 'Could not submit your request. Please try again.' });
-    }
-
-    console.log(`[access-request] request submitted for ${email}`);
+    console.log(`[access-request] created request ${id} for ${email}`);
     return res.json({ ok: true });
   } catch (err) {
     console.error('[access-request] error', err);
@@ -80,4 +87,5 @@ router.post('/', limiter, async (req, res) => {
   }
 });
 
+export { computeDecisionToken, getApprovers };
 export default router;

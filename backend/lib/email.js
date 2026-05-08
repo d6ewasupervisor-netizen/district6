@@ -99,29 +99,145 @@ export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific
   });
 }
 
+/** Sent to the requester when their access is approved and the magic link is ready. */
 export async function sendAccessApprovedEmail({ to, name, link }) {
-  const subject = 'You\'ve been approved — District 6 Compliance Hub';
+  const subject = 'You\'re approved — District 6 Compliance Hub';
   const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hello,';
   const safeLink = escapeHtml(link);
   const html = `
-    <p>${greeting}</p>
-    <p>Your access to the District 6 Compliance Hub has been approved.
-       Use the secure link below to sign in — it is unique to you and expires in 30 days.</p>
-    <p><a href="${safeLink}" style="display:inline-block;background:#1a3a6e;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Sign in to District 6 Compliance Hub</a></p>
-    <p style="color:#6b7280;font-size:13px;">If the button doesn't work, copy and paste this link:<br>${safeLink}</p>
-    <p>— District 6 Compliance Hub</p>
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;color:#1f2937;">
+      <h2 style="color:#1a3a6e;margin:0 0 16px;">${greeting}</h2>
+      <p style="margin:0 0 12px;">Great news — your access to the District 6 Compliance Hub has been approved.</p>
+      <p style="margin:0 0 24px;">Click the button below to sign in. This link is unique to you and expires in 30 days.</p>
+      <p style="margin:0 0 24px;">
+        <a href="${safeLink}" style="display:inline-block;background:#1a3a6e;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Sign in to District 6 Compliance Hub</a>
+      </p>
+      <p style="color:#6b7280;font-size:13px;margin:0;">Can't click the button? Copy and paste this link:<br>${safeLink}</p>
+      <p style="margin-top:24px;color:#9ca3af;font-size:12px;">— District 6 Compliance Hub</p>
+    </div>
   `;
   const text = [
     greeting,
     '',
-    'Your access to the District 6 Compliance Hub has been approved.',
-    'Use the link below to sign in — it is unique to you and expires in 30 days.',
+    'Great news — your access to the District 6 Compliance Hub has been approved.',
+    'Use the link below to sign in. It is unique to you and expires in 30 days.',
     '',
     link,
     '',
     '— District 6 Compliance Hub',
   ].join('\n');
   return resend.emails.send({ from: FROM, to, subject, text, html });
+}
+
+/** Sent to each approver with Approve / Deny buttons pointing to the Railway backend. */
+export async function sendAccessRequestApprovalEmail({ record, approverEmail, approveUrl, denyUrl }) {
+  const reasonRow = record.reason
+    ? `<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Reason / supervisor</td>
+           <td style="padding:6px 0 6px 16px;font-size:14px;">${escapeHtml(record.reason)}</td></tr>`
+    : '';
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6fa;padding:32px 16px;">
+    <div style="background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08);padding:32px;max-width:520px;margin:0 auto;border:1px solid #e5e7eb;">
+      <h2 style="margin:0 0 4px;color:#1a3a6e;font-size:18px;">Access request — District 6 Compliance Hub</h2>
+      <p style="margin:0 0 20px;color:#6b7280;font-size:14px;">Someone needs access. You and the other manager both received this — first click wins.</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          <td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Name</td>
+          <td style="padding:6px 0 6px 16px;font-size:14px;font-weight:600;">${escapeHtml(record.name || '—')}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Email</td>
+          <td style="padding:6px 0 6px 16px;font-size:14px;">${escapeHtml(record.email)}</td>
+        </tr>
+        ${reasonRow}
+      </table>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding-right:8px;">
+            <a href="${escapeHtml(approveUrl)}"
+               style="display:block;background:#15803d;color:#fff;text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+              ✓ Approve
+            </a>
+          </td>
+          <td style="padding-left:8px;">
+            <a href="${escapeHtml(denyUrl)}"
+               style="display:block;background:#b91c1c;color:#fff;text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+              ✗ Deny
+            </a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin-top:16px;color:#9ca3af;font-size:12px;">
+        Approve adds this person to the access list and sends them a sign-in link immediately.
+      </p>
+    </div></div>
+  `;
+  const text = [
+    `Access request — District 6 Compliance Hub`,
+    '',
+    `Name: ${record.name || '—'}`,
+    `Email: ${record.email}`,
+    record.reason ? `Reason: ${record.reason}` : '',
+    '',
+    `Approve: ${approveUrl}`,
+    `Deny: ${denyUrl}`,
+  ].filter((l) => l !== null).join('\n');
+  return resend.emails.send({
+    from: FROM,
+    to: approverEmail,
+    subject: `Access request: ${record.name || record.email} (${record.email})`,
+    text,
+    html,
+  });
+}
+
+/** Sent to the requester when their request is denied. */
+export async function sendAccessRequestDenialEmail({ to, name }) {
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hello,';
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;color:#1f2937;">
+      <h2 style="color:#1a3a6e;margin:0 0 16px;">${greeting}</h2>
+      <p style="margin:0 0 12px;">Your request to access the District 6 Compliance Hub has been reviewed and was not approved at this time.</p>
+      <p style="margin:0 0 0;color:#6b7280;font-size:14px;">If you believe this is an error, please contact your District 6 supervisor directly.</p>
+      <p style="margin-top:24px;color:#9ca3af;font-size:12px;">— District 6 Compliance Hub</p>
+    </div>
+  `;
+  const text = [
+    greeting,
+    '',
+    'Your request to access the District 6 Compliance Hub has been reviewed and was not approved at this time.',
+    '',
+    'If you believe this is an error, please contact your District 6 supervisor directly.',
+    '',
+    '— District 6 Compliance Hub',
+  ].join('\n');
+  return resend.emails.send({ from: FROM, to, subject: 'District 6 Compliance Hub — Access request update', text, html });
+}
+
+/** Sent to the other approver to inform them a decision was already made. */
+export async function sendAccessRequestOtherApproverEmail({ to, decidedBy, action, record }) {
+  const label = action === 'approve' ? 'approved' : 'denied';
+  const detail = action === 'approve'
+    ? `A sign-in link was sent automatically to ${escapeHtml(record.email)}.`
+    : `${escapeHtml(record.name || record.email)} was notified that their request was not approved.`;
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;color:#1f2937;">
+      <h2 style="color:#1a3a6e;margin:0 0 16px;">Access request ${label} [FYI]</h2>
+      <p style="margin:0 0 12px;"><strong>${escapeHtml(decidedBy)}</strong> already ${label} this request. ${detail}</p>
+      <table style="margin:16px 0;font-size:14px;border-collapse:collapse;">
+        <tr><td style="color:#6b7280;padding-right:12px;">Name</td><td>${escapeHtml(record.name || '—')}</td></tr>
+        <tr><td style="color:#6b7280;padding-right:12px;">Email</td><td>${escapeHtml(record.email)}</td></tr>
+      </table>
+      <p style="color:#9ca3af;font-size:12px;margin:0;">— District 6 Compliance Hub</p>
+    </div>
+  `;
+  return resend.emails.send({
+    from: FROM,
+    to,
+    subject: `[FYI] Access request ${label}: ${record.name || record.email}`,
+    text: `${decidedBy} already ${label} the access request for ${record.name || record.email} (${record.email}).`,
+    html,
+  });
 }
 
 function escapeHtml(s) {

@@ -2,21 +2,33 @@
   'use strict';
 
   const API_BASE = window.D6_CONFIG.API_BASE;
-  const emailEl = document.getElementById('email');
-  const sendBtn = document.getElementById('send-btn');
-  const statusEl = document.getElementById('status');
-  const requestAccessBtn = document.getElementById('request-access-btn');
 
-  // Request-access section elements
-  const raSection = document.getElementById('request-access-section');
-  const raStatusEl = document.getElementById('ra-status');
-  const raNameEl = document.getElementById('ra-name');
-  const raEmailEl = document.getElementById('ra-email');
-  const raReasonEl = document.getElementById('ra-reason');
-  const raSubmitBtn = document.getElementById('ra-submit-btn');
+  // ── Link-request form elements ──────────────────────────────────────────────
+  const emailEl   = document.getElementById('email');
+  const sendBtn   = document.getElementById('send-btn');
+  const statusEl  = document.getElementById('status');
 
-  // Phrase that triggers the "Request access" button
-  const ACCESS_LIST_MSG = 'not on the access list';
+  // ── Overlay elements ────────────────────────────────────────────────────────
+  const overlay          = document.getElementById('access-overlay');
+  const overlayBackdrop  = document.getElementById('overlay-backdrop');
+  const overlayForm      = document.getElementById('overlay-form');
+  const overlaySuccess   = document.getElementById('overlay-success');
+  const overlayStatus    = document.getElementById('overlay-status');
+  const overlayName      = document.getElementById('overlay-name');
+  const overlayEmail     = document.getElementById('overlay-email');
+  const overlayReason    = document.getElementById('overlay-reason');
+  const overlaySubmit    = document.getElementById('overlay-submit');
+  const overlayCancel    = document.getElementById('overlay-cancel');
+  const overlayCloseOk   = document.getElementById('overlay-close-success');
+
+  // Phrase in the server error that should trigger the overlay
+  const ACCESS_LIST_ERROR = 'not on the access list';
+
+  // ── Utilities ───────────────────────────────────────────────────────────────
+
+  function isValidEmail(s) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+  }
 
   function showStatus(kind, msg) {
     statusEl.className = 'notice ' + (kind === 'error' ? 'notice-error' : 'notice-ok');
@@ -25,137 +37,156 @@
   }
   function hideStatus() { statusEl.classList.add('hidden'); }
 
-  function showRaStatus(kind, msg) {
-    raStatusEl.className = 'notice ' + (kind === 'error' ? 'notice-error' : 'notice-ok');
-    raStatusEl.textContent = msg;
-    raStatusEl.classList.remove('hidden');
+  function showOverlayStatus(kind, msg) {
+    overlayStatus.className = 'notice ' + (kind === 'error' ? 'notice-error' : 'notice-ok');
+    overlayStatus.textContent = msg;
+    overlayStatus.classList.remove('hidden');
   }
-  function hideRaStatus() { raStatusEl.classList.add('hidden'); }
+  function hideOverlayStatus() { overlayStatus.classList.add('hidden'); }
 
-  function isValidEmail(s) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+  // ── Overlay open / close ─────────────────────────────────────────────────────
+
+  function openOverlay(prefillEmail) {
+    overlayEmail.value = prefillEmail || '';
+    overlayName.value  = '';
+    overlayReason.value = '';
+    overlaySubmit.disabled   = false;
+    overlaySubmit.textContent = 'Request access';
+    hideOverlayStatus();
+
+    // Reset to form view (in case a previous success was shown)
+    overlayForm.classList.remove('hidden');
+    overlaySuccess.classList.add('hidden');
+
+    overlay.classList.remove('hidden');
+    document.body.classList.add('overlay-open');
+
+    // Focus name field after animation
+    setTimeout(function () { overlayName.focus(); }, 80);
   }
 
-  function showRequestAccessButton(prefillEmail) {
-    requestAccessBtn.style.display = 'block';
-    if (prefillEmail && raEmailEl) {
-      raEmailEl.value = prefillEmail;
+  function closeOverlay() {
+    overlay.classList.add('hidden');
+    document.body.classList.remove('overlay-open');
+    emailEl.focus();
+  }
+
+  overlayBackdrop.addEventListener('click', closeOverlay);
+  overlayCancel.addEventListener('click', closeOverlay);
+  overlayCloseOk.addEventListener('click', closeOverlay);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+      closeOverlay();
     }
-  }
-
-  function hideRequestAccessButton() {
-    requestAccessBtn.style.display = 'none';
-  }
-
-  // Show the request-access card when the button is clicked
-  requestAccessBtn.addEventListener('click', function () {
-    raSection.classList.remove('hidden');
-    raSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (raNameEl) raNameEl.focus();
   });
+
+  // Prevent clicks inside the panel from closing the overlay
+  overlay.querySelector('.access-overlay-panel').addEventListener('click', function (e) {
+    e.stopPropagation();
+  });
+
+  // ── Link-request flow ────────────────────────────────────────────────────────
 
   async function send() {
     hideStatus();
-    hideRequestAccessButton();
     const email = (emailEl.value || '').trim().toLowerCase();
     if (!isValidEmail(email)) {
       showStatus('error', 'Please enter a valid email address.');
       return;
     }
-    // Server is the authoritative source for the access list (corporate domain
-    // OR personal allowlist). The client only validates the format here so we
-    // get fast feedback on typos; the server returns a friendly rejection
-    // message for addresses that aren't on the list.
+    // The server is the authoritative source for the access list.
 
-    sendBtn.disabled = true;
+    sendBtn.disabled  = true;
     sendBtn.textContent = 'Sending…';
 
     try {
-      const res = await fetch(API_BASE + '/api/request-link', {
+      const res  = await fetch(API_BASE + '/api/request-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(function () { return {}; });
+
       if (!res.ok || !data.ok) {
         const msg = data.error || 'Could not send link. Please try again.';
         showStatus('error', msg);
-        sendBtn.disabled = false;
+        sendBtn.disabled  = false;
         sendBtn.textContent = 'Send my link';
-        // Offer the request-access path when the email isn't on the list
-        if (msg.toLowerCase().includes(ACCESS_LIST_MSG)) {
-          showRequestAccessButton(email);
+
+        // If the email isn't recognised, immediately open the request-access overlay
+        if (msg.toLowerCase().includes(ACCESS_LIST_ERROR)) {
+          openOverlay(email);
         }
         return;
       }
+
       showStatus('ok', 'Check your email — your secure link is on its way.');
       emailEl.value = '';
       sendBtn.textContent = 'Sent';
-      // Re-enable after a short delay so people can request another if needed.
-      setTimeout(() => {
-        sendBtn.disabled = false;
+      setTimeout(function () {
+        sendBtn.disabled  = false;
         sendBtn.textContent = 'Send my link';
       }, 4000);
     } catch (err) {
       showStatus('error', 'Network error. Please try again.');
-      sendBtn.disabled = false;
+      sendBtn.disabled  = false;
       sendBtn.textContent = 'Send my link';
     }
   }
 
+  sendBtn.addEventListener('click', send);
+  emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
+
+  // ── Access-request overlay submission ────────────────────────────────────────
+
   async function submitAccessRequest() {
-    hideRaStatus();
-    const name = (raNameEl.value || '').trim();
-    const email = (raEmailEl.value || '').trim().toLowerCase();
-    const reason = (raReasonEl.value || '').trim();
+    hideOverlayStatus();
+    const name   = (overlayName.value   || '').trim();
+    const email  = (overlayEmail.value  || '').trim().toLowerCase();
+    const reason = (overlayReason.value || '').trim();
 
     if (!name) {
-      showRaStatus('error', 'Please enter your full name.');
-      raNameEl.focus();
+      showOverlayStatus('error', 'Please enter your full name.');
+      overlayName.focus();
       return;
     }
     if (!isValidEmail(email)) {
-      showRaStatus('error', 'Please enter a valid email address.');
-      raEmailEl.focus();
+      showOverlayStatus('error', 'Please enter a valid email address.');
+      overlayEmail.focus();
       return;
     }
 
-    raSubmitBtn.disabled = true;
-    raSubmitBtn.textContent = 'Submitting…';
+    overlaySubmit.disabled    = true;
+    overlaySubmit.textContent = 'Submitting…';
 
     try {
-      const res = await fetch(API_BASE + '/api/access-request', {
+      const res  = await fetch(API_BASE + '/api/access-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, reason }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(function () { return {}; });
+
       if (!res.ok || !data.ok) {
-        showRaStatus('error', data.error || 'Could not submit your request. Please try again.');
-        raSubmitBtn.disabled = false;
-        raSubmitBtn.textContent = 'Submit request';
+        showOverlayStatus('error', data.error || 'Could not submit your request. Please try again.');
+        overlaySubmit.disabled    = false;
+        overlaySubmit.textContent = 'Request access';
         return;
       }
-      showRaStatus('ok', 'Request sent! You\'ll receive an email once a manager approves your access.');
-      raNameEl.value = '';
-      raEmailEl.value = '';
-      raReasonEl.value = '';
-      raSubmitBtn.textContent = 'Submitted';
-      raSubmitBtn.disabled = true;
+
+      // Switch to success view inside the overlay
+      overlayForm.classList.add('hidden');
+      overlaySuccess.classList.remove('hidden');
+      overlayCloseOk.focus();
     } catch (err) {
-      showRaStatus('error', 'Network error. Please try again.');
-      raSubmitBtn.disabled = false;
-      raSubmitBtn.textContent = 'Submit request';
+      showOverlayStatus('error', 'Network error. Please try again.');
+      overlaySubmit.disabled    = false;
+      overlaySubmit.textContent = 'Request access';
     }
   }
 
-  sendBtn.addEventListener('click', send);
-  emailEl.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') send();
-  });
-
-  raSubmitBtn.addEventListener('click', submitAccessRequest);
-  raEmailEl.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') submitAccessRequest();
-  });
+  overlaySubmit.addEventListener('click', submitAccessRequest);
+  overlayEmail.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAccessRequest(); });
+  overlayReason.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAccessRequest(); });
 })();
