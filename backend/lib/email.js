@@ -217,25 +217,51 @@ export async function sendAccessRequestDenialEmail({ to, name }) {
 /** Sent to the other approver to inform them a decision was already made. */
 export async function sendAccessRequestOtherApproverEmail({ to, decidedBy, action, record }) {
   const label = action === 'approve' ? 'approved' : 'denied';
+  const outcomeColor = action === 'approve' ? '#15803d' : '#b91c1c';
+  const outcomeBg    = action === 'approve' ? '#ecfdf5' : '#fef2f2';
+  const outcomeBorder = action === 'approve' ? '#bbf7d0' : '#fecaca';
   const detail = action === 'approve'
-    ? `A sign-in link was sent automatically to ${escapeHtml(record.email)}.`
-    : `${escapeHtml(record.name || record.email)} was notified that their request was not approved.`;
+    ? `A sign-in link was sent automatically to <strong>${escapeHtml(record.email)}</strong>.`
+    : `<strong>${escapeHtml(record.name || record.email)}</strong> was notified that their request was not approved.`;
+  const reasonRow = record.reason
+    ? `<tr><td style="color:#6b7280;padding:4px 12px 4px 0;font-size:13px;vertical-align:top;">Reason</td><td style="font-size:14px;padding:4px 0;">${escapeHtml(record.reason)}</td></tr>`
+    : '';
   const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;color:#1f2937;">
-      <h2 style="color:#1a3a6e;margin:0 0 16px;">Access request ${label} [FYI]</h2>
-      <p style="margin:0 0 12px;"><strong>${escapeHtml(decidedBy)}</strong> already ${label} this request. ${detail}</p>
-      <table style="margin:16px 0;font-size:14px;border-collapse:collapse;">
-        <tr><td style="color:#6b7280;padding-right:12px;">Name</td><td>${escapeHtml(record.name || '—')}</td></tr>
-        <tr><td style="color:#6b7280;padding-right:12px;">Email</td><td>${escapeHtml(record.email)}</td></tr>
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6fa;padding:32px 16px;">
+    <div style="background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08);padding:32px;max-width:520px;margin:0 auto;border:1px solid #e5e7eb;">
+      <h2 style="margin:0 0 4px;color:#1a3a6e;font-size:18px;">Access request — District 6 Compliance Hub</h2>
+      <p style="margin:0 0 20px;color:#6b7280;font-size:14px;">You received a copy of this request. No action needed — it's already been handled.</p>
+
+      <div style="background:${outcomeBg};border:1px solid ${outcomeBorder};border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:14px;color:${outcomeColor};">
+        <strong>${escapeHtml(decidedBy)}</strong> already <strong>${label}</strong> this request. ${detail}
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <tr><td style="color:#6b7280;padding:4px 12px 4px 0;vertical-align:top;">Name</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(record.name || '—')}</td></tr>
+        <tr><td style="color:#6b7280;padding:4px 12px 4px 0;vertical-align:top;">Email</td><td style="padding:4px 0;">${escapeHtml(record.email)}</td></tr>
+        ${reasonRow}
       </table>
-      <p style="color:#9ca3af;font-size:12px;margin:0;">— District 6 Compliance Hub</p>
-    </div>
+      <p style="margin-top:20px;color:#9ca3af;font-size:12px;">— District 6 Compliance Hub</p>
+    </div></div>
   `;
+  const text = [
+    `[FYI] Access request ${label} — District 6 Compliance Hub`,
+    '',
+    `${decidedBy} already ${label} this request. No action needed.`,
+    '',
+    `Name:  ${record.name || '—'}`,
+    `Email: ${record.email}`,
+    record.reason ? `Reason: ${record.reason}` : '',
+    '',
+    action === 'approve'
+      ? `A sign-in link was sent automatically to ${record.email}.`
+      : `${record.name || record.email} was notified that their request was not approved.`,
+  ].filter((l) => l !== null).join('\n');
   return resend.emails.send({
     from: FROM,
     to,
-    subject: `[FYI] Access request ${label}: ${record.name || record.email}`,
-    text: `${decidedBy} already ${label} the access request for ${record.name || record.email} (${record.email}).`,
+    subject: `[FYI] Access request ${label}: ${record.name || record.email} (${record.email})`,
+    text,
     html,
   });
 }

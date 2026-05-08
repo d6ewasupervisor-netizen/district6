@@ -138,18 +138,6 @@ async function handleDecision(req, res, action) {
 
   console.log(`[access-request-decision] ${action} by ${approverEmail} for request ${id} (${decided.email})`);
 
-  // Notify the other approver(s)
-  const approvers = getApprovers();
-  for (const other of approvers) {
-    if (other.toLowerCase() !== approverEmail.toLowerCase()) {
-      try {
-        await sendAccessRequestOtherApproverEmail({ to: other, decidedBy: approverEmail, action, record: decided });
-      } catch (err) {
-        console.error(`[access-request-decision] failed to notify other approver ${other}:`, err);
-      }
-    }
-  }
-
   let warning = null;
 
   if (action === 'approve') {
@@ -189,6 +177,19 @@ async function handleDecision(req, res, action) {
       await sendAccessRequestDenialEmail({ to: decided.email, name: decided.name });
     } catch (err) {
       console.error('[access-request-decision] failed to send denial email:', err);
+    }
+  }
+
+  // Notify the other approver(s) LAST — after all primary emails have been sent —
+  // so the original request email has time to arrive in their inbox first.
+  const approvers = getApprovers();
+  for (const other of approvers) {
+    if (other.toLowerCase() !== approverEmail.toLowerCase()) {
+      try {
+        await sendAccessRequestOtherApproverEmail({ to: other, decidedBy: approverEmail, action, record: decided });
+      } catch (err) {
+        console.error(`[access-request-decision] failed to notify other approver ${other}:`, err);
+      }
     }
   }
 
