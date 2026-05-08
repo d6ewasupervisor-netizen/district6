@@ -1,8 +1,8 @@
 // backend/routes/access-request-decision.js
 //
 // Handles approve/deny clicks from the approval email.
-// These are regular browser GET requests (the user clicks a link in email),
-// so they return full HTML pages, not JSON.
+// IMPORTANT: Email security scanners can prefetch GET links. GET routes here
+// only render a confirmation page; the actual decision requires a POST.
 // Hosted on Railway so no tunnel/ngrok required.
 
 import express from 'express';
@@ -18,6 +18,8 @@ import {
 } from '../lib/email.js';
 
 const router = express.Router();
+
+router.use(express.urlencoded({ extended: false }));
 
 // ── HTML helpers ─────────────────────────────────────────────────────────────
 
@@ -51,6 +53,11 @@ const PAGE_CSS = `
     .deny{display:inline-block;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:6px;padding:2px 10px;font-size:13px}
     .muted{color:#6b7280;font-size:13px}
     .warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:12px 14px;font-size:14px;margin-top:16px}
+    .actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:20px}
+    button{font:inherit;border:0;border-radius:8px;padding:14px 18px;font-weight:700;cursor:pointer}
+    .approveBtn{background:#15803d;color:#fff}
+    .denyBtn{background:#b91c1c;color:#fff}
+    .cancelLink{display:block;text-align:center;margin-top:12px;color:#6b7280;font-size:13px;text-decoration:none}
   </style>`;
 
 function detailHtml(record) {
@@ -97,14 +104,45 @@ function renderError(title, msg) {
 <body><div class="card"><h1>${esc(title)}</h1><p>${esc(msg)}</p></div></body></html>`;
 }
 
+function renderDecisionPrompt(action, record, token, approverEmail) {
+  const label = action === 'approve' ? 'approve' : 'deny';
+  const title = action === 'approve' ? 'Confirm Approval' : 'Confirm Denial';
+  const buttonClass = action === 'approve' ? 'approveBtn' : 'denyBtn';
+  const buttonText = action === 'approve' ? 'Yes, approve access' : 'Yes, deny access';
+  const note = action === 'approve'
+    ? 'This will add the requester to the access list and email them a sign-in link immediately.'
+    : 'This will mark the request denied and email the requester that access was not approved.';
+  return `<!DOCTYPE html><html><head>${PAGE_CSS}<title>${title}</title></head>
+<body><div class="card">
+  <h1>${title}</h1>
+  <p>${esc(note)}</p>
+  ${detailHtml(record)}
+  <form method="post" action="/api/access-requests/${encodeURIComponent(record.id)}/${label}">
+    <input type="hidden" name="token" value="${esc(token)}">
+    <input type="hidden" name="by" value="${esc(approverEmail)}">
+    <div class="actions">
+      <button type="submit" class="${buttonClass}">${buttonText}</button>
+    </div>
+  </form>
+  <a class="cancelLink" href="javascript:window.close()">Cancel — close this page</a>
+</div></body></html>`;
+}
+
 // ── Decision handler ──────────────────────────────────────────────────────────
 
-async function handleDecision(req, res, action) {
+function getDecisionParams(req) {
   const { id } = req.params;
-  const { token, by: approverEmail } = req.query;
+  const token = req.method === 'POST' ? req.body?.token : req.query.token;
+  const approverEmail = req.method === 'POST' ? req.body?.by : req.query.by;
+  return { id, token, approverEmail };
+}
+
+async function validateDecisionRequest(req, res, action) {
+  const { id, token, approverEmail } = getDecisionParams(req);
 
   if (!id || !token || !approverEmail) {
-    return res.status(400).send(renderError('Invalid link', 'This link is missing required parameters.'));
+    res.status(400).send(renderError('Invalid link', 'This link is missing required parameters.'));
+    return null;
   }
 
   // HMAC verification
@@ -112,21 +150,48 @@ async function handleDecision(req, res, action) {
   try {
     expectedToken = computeDecisionToken(id, action, approverEmail);
   } catch {
-    return res.status(500).send(renderError('Configuration error', 'The server is missing its signing key. Please contact your supervisor.'));
+    res.status(500).send(renderError('Configuration error', 'The server is missing its signing key. Please contact your supervisor.'));
+    return null;
   }
 
   const tokBuf = Buffer.from(token, 'hex');
   const expBuf = Buffer.from(expectedToken, 'hex');
   const valid = tokBuf.length === expBuf.length && crypto.timingSafeEqual(tokBuf, expBuf);
   if (!valid) {
-    return res.status(403).send(renderError('Invalid link', 'This link is invalid or has been tampered with.'));
+    res.status(403).send(renderError('Invalid link', 'This link is invalid or has been tampered with.'));
+    return null;
   }
 
   // Look up the request
   const existing = await getAccessRequest(id);
   if (!existing) {
-    return res.status(404).send(renderError('Request not found', 'This access request could not be found. It may have expired.'));
+    res.status(404).send(renderError('Request not found', 'This access request could not be found. It may have expired.'));
+    return null;
   }
+
+  return { id, token, approverEmail, existing };
+}
+
+async function showDecisionPrompt(req, res, action) {
+  const validated = await validateDecisionRequest(req, res, action);
+  if (!validated) return;
+
+  if (validated.existing.status !== 'pending') {
+    return res.send(renderAlreadyDecidedPage(validated.existing));
+  }
+
+  return res.send(renderDecisionPrompt(
+    action,
+    validated.existing,
+    validated.token,
+    validated.approverEmail,
+  ));
+}
+
+async function handleDecision(req, res, action) {
+  const validated = await validateDecisionRequest(req, res, action);
+  if (!validated) return;
+  const { id, approverEmail } = validated;
 
   // First-click-wins atomic update
   const decided = await markAccessRequestDecided(id, action, approverEmail);
@@ -201,7 +266,9 @@ function renderAlreadyDecidedPage(record) {
   return renderAlreadyDecided(record);
 }
 
-router.get('/:id/approve', (req, res) => handleDecision(req, res, 'approve'));
-router.get('/:id/deny', (req, res) => handleDecision(req, res, 'deny'));
+router.get('/:id/approve', (req, res) => showDecisionPrompt(req, res, 'approve'));
+router.get('/:id/deny', (req, res) => showDecisionPrompt(req, res, 'deny'));
+router.post('/:id/approve', (req, res) => handleDecision(req, res, 'approve'));
+router.post('/:id/deny', (req, res) => handleDecision(req, res, 'deny'));
 
 export default router;
