@@ -99,6 +99,31 @@ export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific
   });
 }
 
+export async function sendAccessApprovedEmail({ to, name, link }) {
+  const subject = 'You\'ve been approved — District 6 Compliance Hub';
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hello,';
+  const safeLink = escapeHtml(link);
+  const html = `
+    <p>${greeting}</p>
+    <p>Your access to the District 6 Compliance Hub has been approved.
+       Use the secure link below to sign in — it is unique to you and expires in 30 days.</p>
+    <p><a href="${safeLink}" style="display:inline-block;background:#1a3a6e;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Sign in to District 6 Compliance Hub</a></p>
+    <p style="color:#6b7280;font-size:13px;">If the button doesn't work, copy and paste this link:<br>${safeLink}</p>
+    <p>— District 6 Compliance Hub</p>
+  `;
+  const text = [
+    greeting,
+    '',
+    'Your access to the District 6 Compliance Hub has been approved.',
+    'Use the link below to sign in — it is unique to you and expires in 30 days.',
+    '',
+    link,
+    '',
+    '— District 6 Compliance Hub',
+  ].join('\n');
+  return resend.emails.send({ from: FROM, to, subject, text, html });
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',

@@ -19,6 +19,9 @@
       <h2 id="form-heading">Request your link</h2>
 
       <div id="status" class="notice hidden" role="status" aria-live="polite"></div>
+      <button id="request-access-btn" class="secondary" type="button" style="display:none; margin-top:12px;">
+        Request access
+      </button>
 
       <label for="email">Work email</label>
       <input
@@ -33,6 +36,43 @@
       <p class="help-text">Enter the email address your supervisor has on file.</p>
 
       <button id="send-btn" class="primary" type="button">Send my link</button>
+    </section>
+
+    <section id="request-access-section" class="card hidden" aria-labelledby="ra-heading">
+      <h2 id="ra-heading">Request access</h2>
+      <p class="help-text" style="margin-bottom: 16px;">
+        Enter your details below. Once a manager approves your request you'll receive a sign-in link at the email address you provide.
+      </p>
+
+      <div id="ra-status" class="notice hidden" role="status" aria-live="polite"></div>
+
+      <label for="ra-name">Full name</label>
+      <input
+        id="ra-name"
+        type="text"
+        autocomplete="name"
+        placeholder="Jane Smith"
+      />
+
+      <label for="ra-email" style="margin-top: 14px;">Email address</label>
+      <input
+        id="ra-email"
+        type="email"
+        autocomplete="email"
+        inputmode="email"
+        autocapitalize="none"
+        spellcheck="false"
+        placeholder="your.email@example.com"
+      />
+
+      <label for="ra-reason" style="margin-top: 14px;">Supervisor / reason <span style="font-weight:400; color: var(--text-muted);">(optional)</span></label>
+      <input
+        id="ra-reason"
+        type="text"
+        placeholder="e.g. District 6, sent by April Gauthier"
+      />
+
+      <button id="ra-submit-btn" class="primary" type="button">Submit request</button>
     </section>
 
     <p class="lead" style="margin-top: 24px; font-size: 14px;">

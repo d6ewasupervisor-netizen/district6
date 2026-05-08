@@ -6,6 +6,8 @@ import adminAllowedEmailsRouter from './routes/admin-allowed-emails.js';
 import requestLinkRouter from './routes/request-link.js';
 import verifyTokenRouter from './routes/verify-token.js';
 import submitRouter from './routes/submit.js';
+import accessRequestRouter from './routes/access-request.js';
+import internalAllowedEmailsRouter from './routes/internal-allowed-emails.js';
 
 const app = express();
 
@@ -53,6 +55,8 @@ app.use('/api/admin/allowed-emails', adminAllowedEmailsRouter);
 app.use('/api/request-link', requestLinkRouter);
 app.use('/api/verify-token', verifyTokenRouter);
 app.use('/api/submit', submitRouter);
+app.use('/api/access-request', accessRequestRouter);
+app.use('/api/internal/allowed-emails', internalAllowedEmailsRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('[unhandled]', err);
