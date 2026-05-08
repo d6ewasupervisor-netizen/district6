@@ -22,6 +22,8 @@ const extraAllowed = (process.env.EXTRA_ALLOWED_ORIGINS || '')
 
 const allowedOrigins = [
   process.env.FRONTEND_BASE_URL,
+  process.env.BACKEND_BASE_URL,
+  process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null,
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5500',
