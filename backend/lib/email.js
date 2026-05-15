@@ -9,6 +9,26 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM || 'District 6 Compliance <noreply@retail-odyssey.com>';
 const SUPERVISOR = process.env.EMAIL_TO || 'april.gauthier@retailodyssey.com';
 
+function trimAddr(value) {
+  if (value == null || value === '') return undefined;
+  const t = String(value).trim();
+  return t || undefined;
+}
+
+function resolveReplyToDistrict({ explicit, userEmail } = {}) {
+  return (
+    trimAddr(explicit) ||
+    trimAddr(userEmail) ||
+    trimAddr(process.env.RESEND_REPLY_TO) ||
+    undefined
+  );
+}
+
+function stampReplyTo(payload, opts) {
+  const rt = resolveReplyToDistrict(opts);
+  if (rt) payload.reply_to = rt;
+}
+
 export async function sendLinkEmail({ to, link }) {
   const subject = 'Your District 6 Policy Acknowledgement Link';
   const text = [
@@ -28,7 +48,9 @@ export async function sendLinkEmail({ to, link }) {
     <p><a href="${link}">${link}</a></p>
     <p>— District 6 Compliance Hub</p>
   `;
-  return resend.emails.send({ from: FROM, to, subject, text, html });
+  const payload = { from: FROM, to, subject, text, html };
+  stampReplyTo(payload, {});
+  return resend.emails.send(payload);
 }
 
 export async function sendAdminPasswordResetEmail({ to, resetUrl }) {
@@ -54,7 +76,9 @@ export async function sendAdminPasswordResetEmail({ to, resetUrl }) {
     <p>If you did not request this, you can safely ignore this message.</p>
     <p>— District 6 Compliance Hub</p>
   `;
-  return resend.emails.send({ from: FROM, to, subject, text, html });
+  const payload = { from: FROM, to, subject, text, html };
+  stampReplyTo(payload, {});
+  return resend.emails.send(payload);
 }
 
 export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific, pdfBuffer }) {
@@ -83,7 +107,7 @@ export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific
     <p>— District 6 Compliance Hub</p>
   `;
   const filename = `acknowledgement-${fullName.replace(/[^a-z0-9]+/gi, '-')}-spring-2026.pdf`;
-  return resend.emails.send({
+  const payload = {
     from: FROM,
     to: SUPERVISOR,
     cc: signerEmail,
@@ -96,7 +120,9 @@ export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific
         content: pdfBuffer.toString('base64'),
       },
     ],
-  });
+  };
+  stampReplyTo(payload, { userEmail: signerEmail });
+  return resend.emails.send(payload);
 }
 
 /** Sent to the requester when their access is approved and the magic link is ready. */
@@ -126,7 +152,9 @@ export async function sendAccessApprovedEmail({ to, name, link }) {
     '',
     '— District 6 Compliance Hub',
   ].join('\n');
-  return resend.emails.send({ from: FROM, to, subject, text, html });
+  const payload = { from: FROM, to, subject, text, html };
+  stampReplyTo(payload, {});
+  return resend.emails.send(payload);
 }
 
 /** Sent to each approver with Approve / Deny buttons pointing to the Railway backend. */
@@ -182,13 +210,15 @@ export async function sendAccessRequestApprovalEmail({ record, approverEmail, ap
     `Approve: ${approveUrl}`,
     `Deny: ${denyUrl}`,
   ].filter((l) => l !== null).join('\n');
-  return resend.emails.send({
+  const payload = {
     from: FROM,
     to: approverEmail,
     subject: `Access request: ${record.name || record.email} (${record.email})`,
     text,
     html,
-  });
+  };
+  stampReplyTo(payload, { explicit: record.email });
+  return resend.emails.send(payload);
 }
 
 /** Sent to the requester when their request is denied. */
@@ -211,7 +241,9 @@ export async function sendAccessRequestDenialEmail({ to, name }) {
     '',
     '— District 6 Compliance Hub',
   ].join('\n');
-  return resend.emails.send({ from: FROM, to, subject: 'District 6 Compliance Hub — Access request update', text, html });
+  const payload = { from: FROM, to, subject: 'District 6 Compliance Hub — Access request update', text, html };
+  stampReplyTo(payload, {});
+  return resend.emails.send(payload);
 }
 
 /** Sent to the other approver to inform them a decision was already made. */
@@ -257,13 +289,15 @@ export async function sendAccessRequestOtherApproverEmail({ to, decidedBy, actio
       ? `A sign-in link was sent automatically to ${record.email}.`
       : `${record.name || record.email} was notified that their request was not approved.`,
   ].filter((l) => l !== null).join('\n');
-  return resend.emails.send({
+  const payload = {
     from: FROM,
     to,
     subject: `[FYI] Access request ${label}: ${record.name || record.email} (${record.email})`,
     text,
     html,
-  });
+  };
+  stampReplyTo(payload, { explicit: decidedBy });
+  return resend.emails.send(payload);
 }
 
 function escapeHtml(s) {
