@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { reportResendPayload } from './email-outbox-ingest.js';
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error('RESEND_API_KEY is required');
@@ -29,6 +30,15 @@ function stampReplyTo(payload, opts) {
   if (rt) payload.reply_to = rt;
 }
 
+async function sendTracked(sourceType, payload, extra = {}) {
+  const result = await resend.emails.send(payload);
+  reportResendPayload(sourceType, payload, result, {
+    resendAllowed: !String(sourceType).includes('auth') && !String(sourceType).includes('link'),
+    ...extra,
+  }).catch(() => {});
+  return result;
+}
+
 export async function sendLinkEmail({ to, link }) {
   const subject = 'Your District 6 Policy Acknowledgement Link';
   const text = [
@@ -50,7 +60,7 @@ export async function sendLinkEmail({ to, link }) {
   `;
   const payload = { from: FROM, to, subject, text, html };
   stampReplyTo(payload, {});
-  return resend.emails.send(payload);
+  return sendTracked('policy-link', payload, { resendAllowed: false });
 }
 
 export async function sendAdminPasswordResetEmail({ to, resetUrl }) {
@@ -78,7 +88,7 @@ export async function sendAdminPasswordResetEmail({ to, resetUrl }) {
   `;
   const payload = { from: FROM, to, subject, text, html };
   stampReplyTo(payload, {});
-  return resend.emails.send(payload);
+  return sendTracked('admin-password-reset', payload, { resendAllowed: false });
 }
 
 export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific, pdfBuffer }) {
@@ -122,7 +132,11 @@ export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific
     ],
   };
   stampReplyTo(payload, { userEmail: signerEmail });
-  return resend.emails.send(payload);
+  const r = await sendTracked('signed-receipt', payload, { sentByEmail: signerEmail });
+  if (r.error) {
+    throw new Error(r.error.message || String(r.error.name || '') || 'Resend send failed');
+  }
+  return { id: r.data?.id ?? null };
 }
 
 /** Sent to the requester when their access is approved and the magic link is ready. */
@@ -154,10 +168,7 @@ export async function sendAccessApprovedEmail({ to, name, link }) {
   ].join('\n');
   const payload = { from: FROM, to, subject, text, html };
   stampReplyTo(payload, {});
-  return resend.emails.send(payload);
-}
-
-/** Sent to each approver with Approve / Deny buttons pointing to the Railway backend. */
+  return sendTracked('access-approved', payload, { resendAllowed: false });
 export async function sendAccessRequestApprovalEmail({ record, approverEmail, approveUrl, denyUrl }) {
   const reasonRow = record.reason
     ? `<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Reason / supervisor</td>
@@ -218,10 +229,7 @@ export async function sendAccessRequestApprovalEmail({ record, approverEmail, ap
     html,
   };
   stampReplyTo(payload, { explicit: record.email });
-  return resend.emails.send(payload);
-}
-
-/** Sent to the requester when their request is denied. */
+  return sendTracked('access-request-approval', payload, { sourceRef: record.email });
 export async function sendAccessRequestDenialEmail({ to, name }) {
   const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hello,';
   const html = `
@@ -243,10 +251,7 @@ export async function sendAccessRequestDenialEmail({ to, name }) {
   ].join('\n');
   const payload = { from: FROM, to, subject: 'District 6 Compliance Hub — Access request update', text, html };
   stampReplyTo(payload, {});
-  return resend.emails.send(payload);
-}
-
-/** Sent to the other approver to inform them a decision was already made. */
+  return sendTracked('access-request-denial', payload, { resendAllowed: false });
 export async function sendAccessRequestOtherApproverEmail({ to, decidedBy, action, record }) {
   const label = action === 'approve' ? 'approved' : 'denied';
   const outcomeColor = action === 'approve' ? '#15803d' : '#b91c1c';
@@ -297,10 +302,7 @@ export async function sendAccessRequestOtherApproverEmail({ to, decidedBy, actio
     html,
   };
   stampReplyTo(payload, { explicit: decidedBy });
-  return resend.emails.send(payload);
-}
-
-function escapeHtml(s) {
+  return sendTracked('access-request-other-approver', payload, { sourceRef: record.email });
   return String(s).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[c]));
