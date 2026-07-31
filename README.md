@@ -83,6 +83,19 @@ Renders a sample acknowledgement to a temp file and asserts the output is a non-
 
 ## Operations
 
+### Supervisor receipt email delivery
+
+Signed PDF receipts to `EMAIL_TO` are **queued in Postgres** (`receipt_email_outbox`, same transaction as the `signatures` insert) and delivered by a lightweight in-process worker (`MAIL_RECEIPT_OUTBOX_POLL_MS`, default 45s). Resend failures use **exponential backoff** (configurable via `MAIL_RECEIPT_OUTBOX_*` in `.env.example`); by default there is **no cap** on attempts (`MAIL_RECEIPT_OUTBOX_MAX_ATTEMPTS=0`). Runs one worker inside each Railway `web` dyno (`MAIL_RECEIPT_OUTBOX_POLL_MS`). If you run **multiple concurrent Node backends** pointing at the same database, coordinate with leases or migrate to an external queue; otherwise two instances can rarely double-send during the Resend latency window after a DB claim commits.
+
+To verify delivery or debug a stuck send:
+
+```sql
+SELECT o.id, o.signature_id, o.attempts, o.sent_at, o.next_attempt_at, o.last_error
+FROM receipt_email_outbox o
+WHERE o.sent_at IS NULL
+ORDER BY o.next_attempt_at, o.id;
+```
+
 ### Add or replace a policy document
 
 - Drop the new PDF into `frontend/docs/` using one of the existing names (`attendance.pdf`, `dress-code.pdf`, `sop.pdf`).

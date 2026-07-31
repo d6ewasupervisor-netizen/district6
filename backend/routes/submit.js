@@ -1,8 +1,8 @@
 import express from 'express';
 import { verifyToken } from '../lib/tokens.js';
-import { query, pool } from '../lib/db.js';
-import { buildSignedReceiptPDF, formatPacific } from '../lib/pdf.js';
-import { sendSignedReceipt } from '../lib/email.js';
+import { pool } from '../lib/db.js';
+import { buildSignedReceiptPDF } from '../lib/pdf.js';
+import { flushReceiptEmailOutboxOnce } from '../lib/receipt-email-outbox.js';
 import { lookupIpLocation, formatLocation } from '../lib/geo.js';
 
 const router = express.Router();
@@ -96,12 +96,13 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'This link has already been used.' });
     }
 
-    await client.query(
+    const { rows: inserted } = await client.query(
       `INSERT INTO signatures (
          email, full_name, signature_data_url, doc_version,
          attendance_viewed_at, dress_code_viewed_at, sop_viewed_at,
          agreed_at, signed_at, ip, user_agent, jti, pdf_bytes, location
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       RETURNING id`,
       [
         email,
         trimmedName,
@@ -121,30 +122,24 @@ router.post('/', async (req, res) => {
     );
 
     await client.query(
+      `INSERT INTO receipt_email_outbox (signature_id) VALUES ($1)`,
+      [inserted[0].id],
+    );
+
+    await client.query(
       `UPDATE link_requests SET used_at = NOW() WHERE jti = $1`,
       [jti],
     );
 
     await client.query('COMMIT');
 
-    // Best-effort post-commit notification. Signature is durably recorded either way.
-    // TODO(phase-2): replace with a transactional outbox + retry worker. The current
-    // "log + emailWarning" path means a Resend outage silently drops supervisor notifications,
-    // which is acceptable for Phase 1 but not for production at scale. See README "Out of scope".
-    try {
-      await sendSignedReceipt({
-        signerEmail: email,
-        fullName: trimmedName,
-        signedAtPacific: formatPacific(signedAt),
-        pdfBuffer,
-      });
-    } catch (mailErr) {
-      console.error('[submit] email send failed (signature stored)', mailErr);
-      return res.json({ ok: true, emailWarning: 'Receipt saved but email delivery failed.' });
-    }
+    // Supervisor receipt emails are drained by `receipt-email-outbox` (immediate burst + cron).
+    flushReceiptEmailOutboxOnce(pool).catch((err) =>
+      console.error('[submit] receipt outbox flush failed', err),
+    );
 
     console.log(`[submit] signed jti=${jti.slice(0, 6)}… by ${email}`);
-    return res.json({ ok: true });
+    return res.json({ ok: true, receiptEmailQueued: true });
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch {}
     console.error('[submit] error', err);

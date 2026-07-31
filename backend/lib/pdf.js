@@ -7,8 +7,7 @@
  * → PDF). This file remains as a thin adapter so callers (routes/submit.js,
  * lib/email.js) need no changes:
  *   - buildSignedReceiptPDF() keeps the same arguments and Buffer return.
- *   - formatPacific() keeps the same shape (used by routes/submit.js for
- *     the email body).
+ *   - formatPacific() keeps the same shape for email bodies (receipt outbox worker).
  */
 
 import fs from 'node:fs';

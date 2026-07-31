@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import { runMigrations } from './lib/db.js';
+import { runMigrations, pool } from './lib/db.js';
+import { flushReceiptEmailOutboxOnce, startReceiptEmailOutboxWorker } from './lib/receipt-email-outbox.js';
 import adminSessionRouter from './routes/admin-session.js';
 import adminAllowedEmailsRouter from './routes/admin-allowed-emails.js';
 import requestLinkRouter from './routes/request-link.js';
@@ -74,6 +75,12 @@ const PORT = Number(process.env.PORT || 3000);
     console.error('[boot] migration failed', err);
     process.exit(1);
   }
+
+  flushReceiptEmailOutboxOnce(pool).catch((err) =>
+    console.error('[boot] receipt outbox catch-up flush failed', err),
+  );
+  startReceiptEmailOutboxWorker(pool);
+
   app.listen(PORT, () => {
     console.log(`[boot] District 6 Compliance API listening on :${PORT}`);
   });
