@@ -169,6 +169,8 @@ export async function sendAccessApprovedEmail({ to, name, link }) {
   const payload = { from: FROM, to, subject, text, html };
   stampReplyTo(payload, {});
   return sendTracked('access-approved', payload, { resendAllowed: false });
+}
+
 export async function sendAccessRequestApprovalEmail({ record, approverEmail, approveUrl, denyUrl }) {
   const reasonRow = record.reason
     ? `<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Reason / supervisor</td>
@@ -230,6 +232,8 @@ export async function sendAccessRequestApprovalEmail({ record, approverEmail, ap
   };
   stampReplyTo(payload, { explicit: record.email });
   return sendTracked('access-request-approval', payload, { sourceRef: record.email });
+}
+
 export async function sendAccessRequestDenialEmail({ to, name }) {
   const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hello,';
   const html = `
@@ -252,6 +256,9 @@ export async function sendAccessRequestDenialEmail({ to, name }) {
   const payload = { from: FROM, to, subject: 'District 6 Compliance Hub — Access request update', text, html };
   stampReplyTo(payload, {});
   return sendTracked('access-request-denial', payload, { resendAllowed: false });
+}
+
+/** Sent to the other approver to inform them a decision was already made. */
 export async function sendAccessRequestOtherApproverEmail({ to, decidedBy, action, record }) {
   const label = action === 'approve' ? 'approved' : 'denied';
   const outcomeColor = action === 'approve' ? '#15803d' : '#b91c1c';
@@ -303,6 +310,9 @@ export async function sendAccessRequestOtherApproverEmail({ to, decidedBy, actio
   };
   stampReplyTo(payload, { explicit: decidedBy });
   return sendTracked('access-request-other-approver', payload, { sourceRef: record.email });
+}
+
+function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[c]));
