@@ -7,10 +7,15 @@
   <title>Update Components — District 6 Compliance Hub</title>
   <link rel="icon" type="image/png" href="favicon.png?v=2">
   <link rel="apple-touch-icon" href="favicon.png?v=2">
-  <link rel="stylesheet" href="assets/styles.css" />
-  <link rel="stylesheet" href="vendor/studio/studio-sdk.css" />
+  <link rel="stylesheet" href="https://unpkg.com/grapesjs@0.21.13/dist/css/grapes.min.css" />
   <style>
-    html, body.d6-editor-page { height: 100%; margin: 0; background: #e7eef5; }
+    :root {
+      --navy: #1A3A6E;
+      --text: #1F2937;
+      --text-muted: #6B7280;
+    }
+    html, body.d6-editor-page { height: 100%; margin: 0; background: #e7eef5; color: var(--text); font-family: "Segoe UI", Arial, sans-serif; }
+    a { color: var(--navy); }
     .d6-chooser { max-width: 980px; margin: 0 auto; padding: 28px 20px 60px; }
     .d6-chooser h1 { margin: 8px 0 4px; }
     .d6-chooser h2 { margin: 28px 0 12px; font-size: 18px; }
@@ -43,7 +48,17 @@
       margin: 0;
       width: auto;
       min-height: 40px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid #c5d0dc;
+      background: #fff;
+      color: var(--navy);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
     }
+    #commit-btn { background: var(--navy); color: #fff; border-color: var(--navy); }
+    #preview-btn[aria-pressed="true"] { background: #1A3A6E; color: #fff; }
     .d6-title { flex: 1; font-weight: 700; color: var(--navy); }
     .d6-back { color: var(--navy); font-weight: 600; background: none; border: 0; cursor: pointer; font: inherit; }
     #describe-band { background: #fff; border-bottom: 1px solid #c5d0dc; padding: 12px 16px 14px; }
@@ -54,8 +69,14 @@
     .d6-msg { padding: 8px 12px; border-radius: 8px; max-width: 760px; }
     .d6-msg-admin { background: #e8f2fb; align-self: flex-end; }
     .d6-msg-page { background: #fff; border: 1px solid #c5d0dc; align-self: flex-start; }
-    #studio-root { height: calc(100vh - 60px); width: 100%; background: #d5dee8; }
-    body.d6-describe #studio-root { height: calc(100vh - 60px - 150px); }
+    #studio-root { height: calc(100vh - 60px); width: 100%; }
+    #studio-root .gjs-editor { height: 100% !important; }
+    body.d6-describe #studio-root { height: calc(100vh - 210px); }
+    .notice { padding: 10px 16px; }
+    .notice-ok { background: #ecfdf5; color: #15803d; }
+    .notice-error { background: #fef2f2; color: #b91c1c; }
+    .hidden { display: none !important; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; }
     #editor-status { margin: 0; border-radius: 0; }
     @media (max-width: 720px) {
       .d6-grid { grid-template-columns: 1fr; }
@@ -84,8 +105,9 @@
     <header class="d6-top">
       <button type="button" class="d6-back" id="back-btn">← Documents</button>
       <div class="d6-title" id="work-title"></div>
-      <button id="done-btn" class="secondary hidden" type="button">I'm done</button>
-      <button id="commit-btn" class="primary" type="button">Commit to save all changes</button>
+      <button id="preview-btn" type="button">Preview</button>
+      <button id="done-btn" class="hidden" type="button">I'm done</button>
+      <button id="commit-btn" type="button">Commit to save all changes</button>
     </header>
     <div id="editor-status" class="notice hidden" role="status"></div>
     <section id="describe-band" class="hidden">
@@ -97,8 +119,8 @@
   </div>
 
   <script src="js/config.js"></script>
-  <script src="vendor/studio/studio-sdk.umd.js"></script>
-  <script src="vendor/studio/preset-printable.umd.js"></script>
+  <script src="https://unpkg.com/grapesjs@0.21.13/dist/grapes.min.js"></script>
+  <script src="https://unpkg.com/grapesjs-preset-webpage@1.0.3/dist/index.js"></script>
   <script src="js/components-editor.js"></script>
 </body>
 </html>

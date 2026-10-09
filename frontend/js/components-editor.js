@@ -51,6 +51,7 @@
     describeInput: document.getElementById('describe-input'),
     studioRoot: document.getElementById('studio-root'),
     doneBtn: document.getElementById('done-btn'),
+    previewBtn: document.getElementById('preview-btn'),
     commitBtn: document.getElementById('commit-btn'),
     signInRequired: document.getElementById('sign-in-required'),
   };
@@ -58,7 +59,7 @@
   let current = null;
   let draft = null;
   let studioEditor = null;
-  let siteCssText = '';
+  let previewOn = false;
   let saveTimer = null;
   let saving = false;
   let questionsAsked = 0;
@@ -182,11 +183,13 @@
   }
 
   function captureFromStudio() {
-    if (!studioEditor || !draft) return;
+    if (!studioEditor || !draft || previewOn) return;
     try {
-      draft.projectJson = studioEditor.getProjectData();
-      draft.html = studioEditor.getHtml();
-      draft.css = (studioEditor.getCss && studioEditor.getCss()) || draft.css || '';
+      const html = studioEditor.getHtml();
+      if (!html || !String(html).trim()) return;
+      draft.projectJson = studioEditor.getProjectData ? studioEditor.getProjectData() : draft.projectJson;
+      draft.html = html;
+      draft.css = (studioEditor.getCss && studioEditor.getCss()) || '';
     } catch (_e) { /* tearing down */ }
   }
 
@@ -237,85 +240,69 @@
 
   window.addEventListener('pagehide', flushBeacon);
 
-  function injectCss(editor, cssText) {
-    if (!cssText) return;
-    try {
-      const frame = editor.Canvas && editor.Canvas.getFrameEl && editor.Canvas.getFrameEl();
-      const doc = frame && frame.contentDocument;
-      if (!doc || !doc.head) return;
-      let style = doc.getElementById('d6-editor-css');
-      if (!style) {
-        style = doc.createElement('style');
-        style.id = 'd6-editor-css';
-        doc.head.appendChild(style);
-      }
-      style.textContent = cssText;
-    } catch (_e) { /* frame not ready */ }
+  function setPreview(on) {
+    previewOn = on;
+    if (!els.previewBtn) return;
+    els.previewBtn.textContent = on ? 'Back to editing' : 'Preview';
+    els.previewBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 
   async function initStudio() {
-    const createStudioEditor =
-      (window.GrapesJsStudioSDK &&
-        (window.GrapesJsStudioSDK.default || window.GrapesJsStudioSDK.createStudioEditor)) ||
-      null;
-    if (!createStudioEditor) {
+    const preset = window['grapesjs-preset-webpage'];
+    if (!window.grapesjs || !preset) {
       showStatus('The editor could not load. Refresh and try again.', 'error');
       return;
     }
-    const cfgRes = await api('/api/admin/components/studio-config');
-    const cfg = await cfgRes.json().catch(() => ({}));
-    if (!cfgRes.ok || !cfg.ok || !cfg.licenseKey) {
-      showStatus(cfg.setup || 'The editor key is not set on the server yet.', 'error');
-      return;
-    }
-
-    const html = draft.html || '';
-    const css = draft.css || '';
-    const docMode = isDoc(current.key) || current.key === 'receipt';
-    const plugins = [];
-    if (docMode && window.StudioSdkPlugins_presetPrintable) {
-      const preset = window.StudioSdkPlugins_presetPrintable;
-      const presetPlugin = typeof preset.init === 'function'
-        ? preset.init({ selectedDevice: 'letter', fixedHeight: true })
-        : preset;
-      if (presetPlugin) plugins.push(presetPlugin);
-    }
-    plugins.push(function d6Plugin(editor) {
-      studioEditor = editor;
-      editor.on('update', scheduleSave);
-      editor.on('load', () => {
-        try { editor.setComponents(html); } catch (_e) { /* already parsed */ }
-        if (css && editor.setStyle) {
-          try { editor.setStyle(css); } catch (_e2) { /* inline styles remain */ }
-        }
-        injectCss(editor, docMode ? css : (siteCssText + '\n' + css));
-      });
-      editor.on('canvas:frame:load', () => {
-        injectCss(editor, docMode ? css : (siteCssText + '\n' + css));
-      });
-    });
-
+    const html = draft.html || '<section class="card"><h2>Heading</h2><p>Text</p></section>';
+    const css = draft.css || (isDoc(current.key) ? DOC_CSS : '');
+    const docMode = isDoc(current.key);
+    setPreview(false);
     els.studioRoot.innerHTML = '';
-    await createStudioEditor({
-      licenseKey: cfg.licenseKey,
-      root: '#studio-root',
-      theme: 'light',
-      project: {
-        type: docMode ? 'document' : 'web',
-        default: { pages: [{ name: current.title, component: html }] },
+    studioEditor = window.grapesjs.init({
+      container: '#studio-root',
+      height: '100%',
+      width: 'auto',
+      fromElement: false,
+      components: html,
+      style: css,
+      storageManager: false,
+      noticeOnUnload: false,
+      plugins: [preset],
+      canvas: {
+        styles: docMode ? [] : ['assets/styles.css'],
       },
-      storage: {
-        type: 'self',
-        onLoad: async () => ({ project: { pages: [{ name: current.title, component: html }] } }),
-        onSave: async () => { captureFromStudio(); scheduleSave(); },
-      },
-      plugins,
+    });
+    studioEditor.on('update', scheduleSave);
+    studioEditor.on('load', () => {
+      try { studioEditor.setComponents(html); } catch (_e) { /* already on the canvas */ }
+      if (css) {
+        try { studioEditor.setStyle(css); } catch (_e2) { /* keep existing */ }
+      }
     });
   }
 
-  function destroyStudio() {
+  function togglePreview() {
+    if (!studioEditor) return;
+    if (previewOn) {
+      studioEditor.stopCommand('preview');
+      setPreview(false);
+      return;
+    }
     captureFromStudio();
+    studioEditor.runCommand('preview');
+    setPreview(true);
+  }
+
+  function destroyStudio() {
+    if (studioEditor && previewOn) {
+      try { studioEditor.stopCommand('preview'); } catch (_e) { /* already closed */ }
+    }
+    captureFromStudio();
+    if (studioEditor && studioEditor.destroy) {
+      try { studioEditor.destroy(); } catch (_e2) { /* already gone */ }
+    }
     studioEditor = null;
+    setPreview(false);
     els.studioRoot.innerHTML = '';
   }
 
@@ -331,7 +318,6 @@
     els.workspace.classList.remove('hidden');
     await loadDraft(target);
     await initStudio();
-    await saveNow();
   }
 
   async function backToChooser() {
@@ -457,14 +443,10 @@
         }
       });
     }
-    try {
-      const res = await fetch('assets/styles.css', { cache: 'no-store' });
-      if (res.ok) siteCssText = await res.text();
-    } catch (_e) { siteCssText = ''; }
-
     fillGrid(els.docGrid, DOCS);
     fillGrid(els.hubGrid, HUBS);
     els.backBtn.addEventListener('click', backToChooser);
+    els.previewBtn.addEventListener('click', togglePreview);
     els.commitBtn.addEventListener('click', commitChanges);
   }
 

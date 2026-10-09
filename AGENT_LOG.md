@@ -1,5 +1,9 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-09 — Visual drag-and-drop canvas
+
+- The editor canvas is now the page itself: drag blocks, click text to change it, and Preview shows that page without the handles. The hub stylesheet no longer sits on the editor chrome, which was collapsing the preview controls.
+
 ## 2026-10-09 — Documents are the editor's first screen
 
 - Update Components opens the six documents first (Attendance, Dress Code, SOP, Handbook, Kompass, Vendor), then the four hub pages. Each one opens alone, full window, in the drag-and-drop editor. The document text was pulled from the current PDFs. Commit on a document writes the PDF the hub opens, plus the editable HTML.
