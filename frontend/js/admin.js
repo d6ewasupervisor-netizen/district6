@@ -40,6 +40,8 @@
   const adminPanel = document.getElementById('admin-panel');
   const signedInAsEl = document.getElementById('signed-in-as');
   const lockBtn = document.getElementById('lock-btn');
+  const updateComponentsBtn = document.getElementById('update-components-btn');
+  const describeChangesBtn = document.getElementById('describe-changes-btn');
   const changeCurrentPwEl = document.getElementById('change-current');
   const changeNewPwEl = document.getElementById('change-new');
   const changeNewPw2El = document.getElementById('change-new2');
@@ -782,6 +784,14 @@
     changeSubmit.disabled = false;
     changeSubmit.textContent = 'Update password';
   }
+
+  updateComponentsBtn.addEventListener('click', function () {
+    location.href = 'components.html?mode=manual';
+  });
+
+  describeChangesBtn.addEventListener('click', function () {
+    location.href = 'components.html?mode=describe';
+  });
 
   lockBtn.addEventListener('click', function () {
     clearJwt();

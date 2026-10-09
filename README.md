@@ -60,6 +60,8 @@ For production, edit `frontend/js/config.js` so the non-localhost branch points 
    - `EXTRA_ALLOWED_ORIGINS` *(optional)* — CSV of additional exact-match CORS origins for preview deploys, e.g. `https://staging.example.com,https://pr-42.example.com`. **No wildcards** — entries are matched as literal strings, so `*.github.io` will not match anything.
    - `PGSSL` *(optional)* — `disable` | `require` | `no-verify` | `verify-full`. Leave unset to honor `sslmode=` in `DATABASE_URL`. Set `require` for the Railway public TCP proxy; leave unset (or `disable`) for the `*.railway.internal` private hostname.
    - `LINK_TTL_DAYS` — defaults to 30 if omitted.
+   - Component editor: `GRAPESJS_PUBLIC_KEY` and `GRAPESJS_API_KEY` (same values as the gitignored repo-root `.env`; that file never deploys), `ANTHROPIC_API_KEY` (content editing calls), `GITHUB_TOKEN` (fine-grained, contents: write) and `GITHUB_REPO=d6ewasupervisor-netizen/district6` (publish commits).
+   - **Watch Path** (Service → Settings): set to `/backend/**`. Content publishes only commit `frontend/**` files, so with the watch path set they never rebuild the API image. The one-time feature push changes `backend/` and does deploy.
 6. Deploy. Migrations run automatically on every boot. The `schema_migrations` table tracks which files have already been applied, so re-running the same image is a no-op.
 7. Update `frontend/js/config.js` `API_BASE` to the Railway-issued URL and push.
 
@@ -98,19 +100,15 @@ ORDER BY o.next_attempt_at, o.id;
 
 ### Add or replace a policy document
 
-- Drop the new PDF into `frontend/docs/` using one of the existing names (`attendance.pdf`, `dress-code.pdf`, `sop.pdf`).
-- Adding a *fourth* required document means:
-  1. A new `.doc-card` block in `frontend/sign.html` with `data-doc="<key>"`.
-  2. Add the new key to the `docs` array in `frontend/js/sign.js`.
-  3. Extend `viewTimestamps` handling in `backend/routes/submit.js` and the `signatures` schema (new `*_viewed_at` column).
-  4. Update the doc list rendered in `backend/lib/email.js`, the `documents` array built in `backend/lib/pdf.js`, and the `{{#each documents}}` section of `backend/lib/templates/receipt.html`.
+- Drop the new PDF into `frontend/docs/` (or upload it from the component editor — uploads are stored in Postgres and written into `frontend/docs/` at publish).
+- Publish the Acknowledgement page from the component editor with the updated policy cards (each required card is a `.doc-card` carrying `data-doc="<key>"`). Publishing syncs `policy_documents`; `backend/routes/submit.js` then requires a viewed timestamp for every active required row and the receipt lists exactly that set. The old fixed key list is gone.
 
 ### Add or replace a reference document
 
-Reference materials (`handbook.pdf`, `kompass.pdf`, `vendor.pdf`) are linked from `sign.html` for context but are **not** required to acknowledge.
+Reference materials (`handbook.pdf`, `kompass.pdf`, `vendor.pdf`) are linked from the Acknowledgement page for context but are **not** required to acknowledge.
 
-- Drop the new PDF into `frontend/docs/`.
-- To add a new one: copy an existing `.ref-card` block in `frontend/sign.html`, point `data-pdf-src` and `href` at the new file, and adjust the title/description.
+- Drop the new PDF into `frontend/docs/` (or upload it from the component editor).
+- Add a `.ref-card` block (Reference PDF card) on the Acknowledgement page and publish. Reference rows sync into `policy_documents` with `kind='reference'`.
 
 ### How the read-gate works
 
@@ -144,6 +142,18 @@ To export a single receipt PDF:
 ```
 
 In practice, retrieve `pdf_bytes` via a small script (`pg` driver → `fs.writeFileSync`).
+
+## Component editor (published page content)
+
+The signed-in admin panel has two buttons: **Update Components** (`components.html?mode=manual`, GrapesJS Studio canvas) and **Describe your changes** (`components.html?mode=describe`, message loop with a live preview). Both modes edit one shared draft per page — mirrored to browser IndexedDB (`d6-component-drafts`) and Postgres (`component_drafts`), newest `updatedAt` wins on load. The page picker covers Home, Acknowledgement, Thank you, and Receipt (the access-list page stays fixed).
+
+**Commit to save all changes** publishes the current draft: HTML sanitize (strips `script`/`iframe`/`object`/`embed`, `on*` handlers, `javascript:` URLs) → required hook checks (missing hooks are named in a plain sentence) → `policy_documents` sync for the Acknowledgement page → `component_pages` upsert → one GitHub commit of `frontend/content/<pageKey>.json`, `frontend/content/<pageKey>.css`, and any new `frontend/docs/` or `frontend/assets/uploads/` files. Uploads live in Postgres (`component_assets`) and are served at `GET /api/content/assets/:id` until that commit writes the bytes into `frontend/`.
+
+Public pages hydrate via `frontend/js/content-hydrate.js` → `GET /api/content/:pageKey` (30s cache) before `request-link.js`/`sign.js` initialize; if the fetch fails, the HTML already in the file stays. Receipt PDFs render from the published receipt page when one exists (still Handlebars → Puppeteer via `backend/lib/receipt-renderer.js`), otherwise from `backend/lib/templates/receipt.html`.
+
+Editing is driven by two content passes against the Messages API (`backend/lib/claude-components.js`, server-only): a layout pass that asks up to three clarifying questions then applies changes to the draft, and a finish pass that runs on **I'm done** or automatically before Commit if it has not run yet.
+
+**Railway watch path:** `Service → Settings → Watch Path = /backend/**`. Content publishes commit `frontend/**` only, so they never rebuild the API/Chromium image — publishing is live on the next page load via Postgres plus the Pages content files.
 
 ## File layout
 

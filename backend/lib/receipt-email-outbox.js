@@ -84,7 +84,7 @@ async function processReceiptEmailOutboxImpl(pool, { limit = 10 } = {}) {
 async function sendOneQueuedReceipt(pool, { id: outboxId, signature_id: signatureId, attempt_no: attemptNo }) {
   try {
     const { rows } = await pool.query(
-      `SELECT id, email, full_name, signed_at, pdf_bytes
+      `SELECT id, email, full_name, signed_at, pdf_bytes, doc_views
        FROM signatures
        WHERE id = $1`,
       [signatureId],
@@ -124,11 +124,23 @@ async function sendOneQueuedReceipt(pool, { id: outboxId, signature_id: signatur
 
     let resendEmailId = null;
     try {
+      // Resolve the document names this signature acknowledged (doc_views keys
+      // → policy_documents titles). Falls back to the legacy list when absent.
+      let documentNames = null;
+      const docKeys = sig.doc_views && typeof sig.doc_views === 'object' ? Object.keys(sig.doc_views) : [];
+      if (docKeys.length) {
+        const { rows: docRows } = await pool.query(
+          `SELECT title FROM policy_documents WHERE doc_key = ANY($1::text[]) ORDER BY sort_order ASC, title ASC`,
+          [docKeys],
+        );
+        if (docRows.length) documentNames = docRows.map((r) => r.title);
+      }
       const sendResult = await sendSignedReceipt({
         signerEmail: sig.email,
         fullName: sig.full_name,
         signedAtPacific: formatPacific(sig.signed_at),
         pdfBuffer: Buffer.isBuffer(sig.pdf_bytes) ? sig.pdf_bytes : Buffer.from(sig.pdf_bytes),
+        documentNames,
       });
       resendEmailId = sendResult?.id || null;
     } catch (err) {

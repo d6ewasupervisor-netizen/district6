@@ -3,8 +3,11 @@ import { getAdminRow } from './site-admin.js';
 
 function readBearer(req) {
   const auth = req.get('authorization') || '';
-  if (!auth.toLowerCase().startsWith('bearer ')) return '';
-  return auth.slice(7).trim();
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
+  // navigator.sendBeacon cannot set headers; the component-editor draft flush
+  // posts to /draft?token=... during pagehide.
+  const q = req.query && typeof req.query.token === 'string' ? req.query.token.trim() : '';
+  return q;
 }
 
 /**

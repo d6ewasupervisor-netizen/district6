@@ -58,40 +58,28 @@ export async function buildSignedReceiptPDF({
   fullName,
   email,
   docVersion,
-  attendanceViewedAt,
-  dressCodeViewedAt,
-  sopViewedAt,
+  documents = [],
   agreedAt,
   signedAt,
   ip,
   location,
   signatureDataUrl,
 }) {
-  // Pre-format every timestamp so the template never does date math. Order
-  // and labels here are the contract with backend/lib/templates/receipt.html.
-  const documents = [
-    {
-      key: 'attendance',
-      name: 'Attendance & Timekeeping Policy',
-      viewedAtPacific: formatPacific(attendanceViewedAt),
-    },
-    {
-      key: 'dressCode',
-      name: 'Dress Code Policy',
-      viewedAtPacific: formatPacific(dressCodeViewedAt),
-    },
-    {
-      key: 'sop',
-      name: 'Standard Operating Procedures',
-      viewedAtPacific: formatPacific(sopViewedAt),
-    },
-  ];
+  // Pre-format every timestamp so the template never does date math. The
+  // documents list comes from active required policy_documents rows + the
+  // signer's view timestamps (routes/submit.js); order and labels here are the
+  // contract with the receipt template.
+  const formattedDocuments = (documents || []).map((doc) => ({
+    key: doc.key,
+    name: doc.name,
+    viewedAtPacific: formatPacific(doc.viewedAt),
+  }));
 
   return renderReceiptPDF({
     fullName,
     email,
     docVersion,
-    documents,
+    documents: formattedDocuments,
     agreedAtPacific: formatPacific(agreedAt),
     signedAtPacific: formatPacific(signedAt),
     ip: ip || 'unknown',

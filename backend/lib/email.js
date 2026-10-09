@@ -91,15 +91,23 @@ export async function sendAdminPasswordResetEmail({ to, resetUrl }) {
   return sendTracked('admin-password-reset', payload, { resendAllowed: false });
 }
 
-export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific, pdfBuffer }) {
+export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific, pdfBuffer, documentNames }) {
   const subject = `Policy Acknowledgement — ${fullName} — Spring 2026 Edition`;
+  // Document names come from the policy list used for the receipt PDF; the
+  // fallback keeps older queued sends (pre-policy_documents) intact.
+  const names =
+    Array.isArray(documentNames) && documentNames.length
+      ? documentNames
+      : [
+          'Attendance & Timekeeping Policy',
+          'Dress Code Policy',
+          'Standard Operating Procedures',
+        ];
   const text = [
     `${fullName} has acknowledged the District 6 Spring 2026 policy set on ${signedAtPacific}.`,
     '',
     'Documents acknowledged:',
-    '• Attendance & Timekeeping Policy',
-    '• Dress Code Policy',
-    '• Standard Operating Procedures',
+    ...names.map((n) => `• ${n}`),
     '',
     'The signed acknowledgement is attached to this email as a PDF.',
     '',
@@ -109,9 +117,7 @@ export async function sendSignedReceipt({ signerEmail, fullName, signedAtPacific
     <p>${escapeHtml(fullName)} has acknowledged the District 6 Spring 2026 policy set on ${escapeHtml(signedAtPacific)}.</p>
     <p>Documents acknowledged:</p>
     <ul>
-      <li>Attendance &amp; Timekeeping Policy</li>
-      <li>Dress Code Policy</li>
-      <li>Standard Operating Procedures</li>
+      ${names.map((n) => `<li>${escapeHtml(n)}</li>`).join('\n      ')}
     </ul>
     <p>The signed acknowledgement is attached to this email as a PDF.</p>
     <p>— District 6 Compliance Hub</p>

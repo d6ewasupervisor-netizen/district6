@@ -1,3 +1,6 @@
+// Must be the first import: loads the repo-root .env for local runs before any
+// module reads process.env at import time (lib/db.js, lib/admin-jwt.js).
+import './lib/env-file.js';
 import express from 'express';
 import cors from 'cors';
 import { runMigrations, pool } from './lib/db.js';
@@ -9,6 +12,8 @@ import verifyTokenRouter from './routes/verify-token.js';
 import submitRouter from './routes/submit.js';
 import accessRequestRouter from './routes/access-request.js';
 import accessRequestDecisionRouter from './routes/access-request-decision.js';
+import adminComponentsRouter from './routes/admin-components.js';
+import publicContentRouter from './routes/public-content.js';
 
 const app = express();
 
@@ -40,6 +45,12 @@ app.use(cors({
     return cb(new Error(`Origin ${origin} not allowed by CORS`));
   },
 }));
+
+// Component-editor routes get their own JSON limit (~15mb: Studio project JSON
+// and base64 uploads). Mounted BEFORE the global 5mb parser so large payloads
+// reach the route-level parser first; every other route keeps the 5mb limit.
+app.use('/api/admin/components', express.json({ limit: '15mb' }), adminComponentsRouter);
+app.use('/api/content', publicContentRouter);
 
 app.use(express.json({ limit: '5mb' }));
 

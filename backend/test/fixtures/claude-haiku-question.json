@@ -1,0 +1,15 @@
+{
+  "id": "msg_fixture_question",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"question\": \"Should the hero heading stay exactly as it is, or would you like new wording?\"}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": { "input_tokens": 412, "output_tokens": 24 }
+}

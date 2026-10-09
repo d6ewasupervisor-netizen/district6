@@ -1,0 +1,18 @@
+# AUDIT — District 6 Compliance Hub
+
+## How it is built
+
+- **Surfaces**: static site on GitHub Pages from `frontend/` (custom domain via `frontend/CNAME`, workflow `.github/workflows/pages.yml`); API on Railway from `backend/Dockerfile` (service root `/backend`, Puppeteer/Chromium image). A Railway rebuild never changes public pages; content publishes go live through Postgres + GitHub content commits.
+- **Stack**: Node 20+ ESM, Express, `pg`, Handlebars + Puppeteer (receipt PDF), Resend (email outbox). Frontend is plain JS (no build step).
+- **Component editor**: GrapesJS Studio SDK (vendored UMD under `frontend/vendor/studio/` from `@grapesjs/studio-sdk@1.2.1` + `@grapesjs/studio-sdk-plugins@1.0.39`). Web project for Home/Acknowledgement/Thank you; Document project + `presetPrintable` (letter) for Receipt. No second editor library; the receipt PDF stays on the existing Handlebars → Puppeteer path.
+- **Drafts**: `component_drafts` keyed `(admin_email, page_key)` mirrored to IndexedDB `d6-component-drafts` (store `pages`); newer `updatedAt` wins on load; debounced saves + `sendBeacon` on pagehide. Draft route accepts PUT and POST (beacon).
+- **Describe mode**: server-side only calls to the Messages API (`backend/lib/claude-components.js`, `ANTHROPIC_API_KEY`). Layout pass asks up to three clarifying questions (or applies on begin/start/go ahead/make the changes); polish pass runs on "I'm done" or automatically before Commit. API key never reaches the browser; the UI never uses the words AI/assistant/Claude/model/Haiku/Sonnet.
+- **Publish** (`POST /api/admin/components/commit`): sanitize (strip `script`/`iframe`/`object`/`embed`, `on*`, `javascript:` URLs) → required hook check per page (Home `#email`/`#send-btn`/`#access-overlay`; Acknowledgement `#hub`/`#full-name`/`#signature-pad`/`#clear-sig`/`#agree-check`/`#submit-btn` + ≥1 `[data-doc]`; Receipt Handlebars tokens `fullName`/`email`/`signatureDataUrl`/`agreedAtPacific`/`documents` each-loop/`docVersion`) → sync `policy_documents` from `[data-doc]`/reference cards → upsert `component_pages` → one GitHub commit (Git Data API: blobs→tree→commit→ref) of `frontend/content/<pageKey>.json`, `.css`, and new files under `frontend/docs/` or `frontend/assets/uploads/`. Uploads live in `component_assets` (Postgres) and are served at `/api/content/assets/:id` until commit.
+- **Public hydration**: `frontend/js/content-hydrate.js` runs before `request-link.js`/`sign.js`, fetches `GET /api/content/:pageKey` (30s cache), swaps `[data-d6-canvas]`, injects CSS, dispatches `d6-content-ready`; on failure the file HTML stays. `sign.js` reads `[data-doc]` from the canvas after that event; `submit.js` requires a viewed timestamp per active required `policy_documents` row and stores `doc_views jsonb` (legacy `*_viewed_at` columns kept, now nullable).
+- **Env**: `backend/lib/env-file.js` loads the repo-root `.env` for names not already in the process environment (local runs only; Railway must set the same names in the dashboard). `GRAPESJS_API_KEY` is server-only; `GRAPESJS_PUBLIC_KEY` is returned by `GET /api/admin/components/studio-config` as the Studio licenseKey.
+
+## Open
+
+- Railway dashboard steps (secrets + watch path) are manual — see ROADMAP.md.
+- One GitHub commit uses the Git Data API rather than the single-file Contents API (multi-file commits are only possible that way).
+- Sanitizer is regex/tag-walk based (no HTML parser dependency); attribute values containing `>` are a known edge limitation.

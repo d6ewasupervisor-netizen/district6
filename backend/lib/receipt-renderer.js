@@ -6,7 +6,10 @@
  * is reused per process; pages are opened and closed per render.
  *
  * Lifecycle:
- *  - The template is read from disk and compiled lazily on first render.
+ *  - The template source is the published "receipt" page (component_pages)
+ *    when one exists — Studio edits to the receipt page flow straight into
+ *    PDFs — falling back to backend/lib/templates/receipt.html. It is
+ *    compiled lazily and re-resolved every TTL window.
  *  - The browser is launched lazily on first render; subsequent renders
  *    reuse it (warm).
  *  - SIGTERM and SIGINT close the browser cleanly so Railway redeploys
@@ -23,22 +26,38 @@ import puppeteer from 'puppeteer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = path.resolve(__dirname, 'templates', 'receipt.html');
+const TEMPLATE_TTL_MS = 15000;
 
-// Cached compiled template. The promise itself is cached so concurrent
-// first-callers share a single read+compile rather than racing.
-let templatePromise = null;
-async function getTemplate() {
-  if (!templatePromise) {
-    templatePromise = (async () => {
-      const src = await fs.readFile(TEMPLATE_PATH, 'utf8');
-      return Handlebars.compile(src, { noEscape: false });
-    })().catch((err) => {
-      // Reset on failure so the next call retries instead of caching the rejection.
-      templatePromise = null;
-      throw err;
-    });
+// Cached compiled template (published page or file), refreshed on a short TTL
+// so publish updates reach receipts without a redeploy.
+let templateCache = { at: 0, compiled: null };
+
+function composePublishedDocument(html, css) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css || ''}</style></head><body>${html || ''}</body></html>`;
+}
+
+async function resolveTemplateSource() {
+  try {
+    // Lazy import: keeps the standalone smoke test working without DATABASE_URL.
+    const { getPublishedPage } = await import('./component-store.js');
+    const page = await getPublishedPage('receipt');
+    if (page && page.html) {
+      return composePublishedDocument(page.html, page.css);
+    }
+  } catch (err) {
+    console.warn('[receipt-renderer] published template lookup failed, using file:', err?.message || err);
   }
-  return templatePromise;
+  return fs.readFile(TEMPLATE_PATH, 'utf8');
+}
+
+async function getTemplate() {
+  const now = Date.now();
+  if (templateCache.compiled && now - templateCache.at < TEMPLATE_TTL_MS) {
+    return templateCache.compiled;
+  }
+  const compiled = Handlebars.compile(await resolveTemplateSource(), { noEscape: false });
+  templateCache = { at: now, compiled };
+  return compiled;
 }
 
 // Same singleton pattern for the browser. `--no-sandbox` is required on

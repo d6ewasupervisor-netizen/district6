@@ -3,28 +3,52 @@
 
   const API_BASE = window.D6_CONFIG.API_BASE;
 
-  const verifyStatus = document.getElementById('verify-status');
-  const hub = document.getElementById('hub');
-  const signerEmailEl = document.getElementById('signer-email');
-  const signerEmailEl2 = document.getElementById('signer-email-2');
-  const signSection = document.getElementById('sign-section');
-  const fullNameEl = document.getElementById('full-name');
-  const agreeCheck = document.getElementById('agree-check');
-  const submitBtn = document.getElementById('submit-btn');
-  const submitStatus = document.getElementById('submit-status');
-  const clearSigBtn = document.getElementById('clear-sig');
-  const canvas = document.getElementById('signature-pad');
+  // DOM references are resolved after d6-content-ready: hydrating published
+  // content swaps the [data-d6-canvas] subtree, so earlier references go stale.
+  let verifyStatus = null;
+  let hub = null;
+  let signerEmailEl = null;
+  let signerEmailEl2 = null;
+  let signSection = null;
+  let fullNameEl = null;
+  let agreeCheck = null;
+  let submitBtn = null;
+  let submitStatus = null;
+  let clearSigBtn = null;
+  let canvas = null;
 
   // In-memory state — intentionally not persisted to localStorage.
-  const docs = ['attendance', 'dressCode', 'sop'];
+  // Document keys come from [data-doc] elements inside the canvas.
+  let docs = [];
   const docState = {};
-  docs.forEach((d) => {
-    docState[d] = { unlocked: false, viewedAt: null };
-  });
 
   let token = null;
   let signerEmail = null;
   let signaturePad = null;
+
+  function cacheElements() {
+    verifyStatus = document.getElementById('verify-status');
+    hub = document.getElementById('hub');
+    signerEmailEl = document.getElementById('signer-email');
+    signerEmailEl2 = document.getElementById('signer-email-2');
+    signSection = document.getElementById('sign-section');
+    fullNameEl = document.getElementById('full-name');
+    agreeCheck = document.getElementById('agree-check');
+    submitBtn = document.getElementById('submit-btn');
+    submitStatus = document.getElementById('submit-status');
+    clearSigBtn = document.getElementById('clear-sig');
+    canvas = document.getElementById('signature-pad');
+  }
+
+  function whenContentReady(fn) {
+    if (window.__D6_CONTENT_STATE) {
+      fn(window.__D6_CONTENT_STATE);
+      return;
+    }
+    document.addEventListener('d6-content-ready', function (e) {
+      fn((e && e.detail) || {});
+    }, { once: true });
+  }
 
   function showVerifyStatus(kind, msg) {
     verifyStatus.className = 'notice ' + (kind === 'error' ? 'notice-error' : 'notice-ok');
@@ -70,16 +94,18 @@
   }
 
   function getDocCard(docKey) {
-    return document.querySelector('.doc-card[data-doc="' + docKey + '"]');
+    return document.querySelector('[data-doc="' + docKey + '"]');
   }
 
   function initDocCards() {
     docs.forEach((docKey) => {
       const card = getDocCard(docKey);
+      if (!card) return;
       const openBtn = card.querySelector('.doc-open');
       const checkbox = card.querySelector('.doc-check');
       const checkLabel = card.querySelector('.checkbox-row');
       const timer = card.querySelector('[data-timer]');
+      if (!openBtn || !checkbox) return;
 
       openBtn.addEventListener('click', () => {
         const src = openBtn.getAttribute('data-pdf-src');
@@ -110,14 +136,14 @@
 
       checkbox.addEventListener('change', () => {
         const state = docState[docKey];
-        const card = getDocCard(docKey);
+        const cardEl = getDocCard(docKey);
         if (checkbox.checked) {
           state.viewedAt = new Date().toISOString();
-          card.classList.add('complete');
+          cardEl.classList.add('complete');
           timer.textContent = 'Acknowledged';
         } else {
           state.viewedAt = null;
-          card.classList.remove('complete');
+          cardEl.classList.remove('complete');
         }
         maybeRevealSignSection();
       });
@@ -139,7 +165,7 @@
   }
 
   function allDocsAcknowledged() {
-    return docs.every((d) => !!docState[d].viewedAt);
+    return docs.length > 0 && docs.every((d) => !!docState[d].viewedAt);
   }
 
   function maybeRevealSignSection() {
@@ -215,16 +241,17 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting…';
 
+    const viewTimestamps = {};
+    docs.forEach((d) => {
+      viewTimestamps[d] = docState[d].viewedAt;
+    });
+
     const payload = {
       token,
       fullName: fullNameEl.value.trim(),
       signatureDataUrl: signaturePad.toDataURL('image/png'),
       agreedAt: new Date().toISOString(),
-      viewTimestamps: {
-        attendance: docState.attendance.viewedAt,
-        dressCode: docState.dressCode.viewedAt,
-        sop: docState.sop.viewedAt,
-      },
+      viewTimestamps,
     };
 
     try {
@@ -248,5 +275,18 @@
     }
   }
 
-  verifyToken();
+  // Wait for the hydrator so the document list and every element reference come
+  // from the final DOM (published content when present, file content otherwise).
+  whenContentReady(() => {
+    cacheElements();
+    docs = [];
+    document.querySelectorAll('[data-doc]').forEach((el) => {
+      const key = (el.getAttribute('data-doc') || '').trim();
+      if (key && docs.indexOf(key) === -1) docs.push(key);
+    });
+    docs.forEach((d) => {
+      docState[d] = { unlocked: false, viewedAt: null };
+    });
+    verifyToken();
+  });
 })();

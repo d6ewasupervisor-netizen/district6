@@ -1,0 +1,9 @@
+# AGENT_LOG — District 6 Compliance Hub
+
+## 2026-10-08 — District 6 component editor (GrapesJS Studio SDK)
+
+- Built the visual component editor feature: GrapesJS Studio SDK (manual mode) + describe mode with a two-pass polish/publish loop, draft persistence (IndexedDB + Postgres), publish pipeline (sanitize → hook checks → policy_documents sync → component_pages upsert → one GitHub commit of allowlisted content files), public content hydration, and policy-document-driven submission validation.
+- New backend: `migrations/009_component_editor.sql`, `lib/component-store.js`, `lib/component-sanitize.js`, `lib/github-content-commit.js`, `lib/claude-components.js`, `lib/env-file.js`, `routes/admin-components.js`, `routes/public-content.js`.
+- New frontend: `components.html`, `js/components-editor.js`, `js/content-hydrate.js`, vendored Studio SDK under `vendor/studio/`.
+- Edited: `admin.html`/`admin.js` (two buttons), `index.html`/`sign.html`/`thanks.html` (`data-d6-canvas` + hydrate script), `sign.js` (reads `[data-doc]` after `d6-content-ready`), `request-link.js` (init on `d6-content-ready`), `server.js` (route mounts, 15mb JSON on component routes only), `submit.js`, `lib/pdf.js`, `lib/receipt-renderer.js` (published receipt template when present), `lib/admin-auth.js` (token query fallback for sendBeacon), `lib/email.js` + `lib/receipt-email-outbox.js` (receipt email lists the acknowledged documents from `doc_views`/`policy_documents`), `.env.example`.
+- Tests in `backend/test/` with `node:test` (sanitize, hooks, policy-doc-view validation, fixture parsing for the two response shapes).

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Components — District 6 Compliance Hub</title>
+  <link rel="icon" type="image/png" href="favicon.png?v=2">
+  <link rel="apple-touch-icon" href="favicon.png?v=2">
+
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="vendor/studio/studio-sdk.css" />
+  <style>
+    .d6-editor-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 16px;
+    }
+    .d6-editor-bar label { margin: 0; }
+    .d6-editor-bar select {
+      min-width: 180px;
+    }
+    #studio-root {
+      height: calc(100vh - 220px);
+      min-height: 480px;
+      border: 1px solid #d8e3eb;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .d6-transcript {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .d6-msg {
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 720px;
+    }
+    .d6-msg-admin {
+      background: #eef4f9;
+      border: 1px solid #d8e3eb;
+      align-self: flex-end;
+    }
+    .d6-msg-page {
+      background: #ffffff;
+      border: 1px solid #c9d6e2;
+      align-self: flex-start;
+    }
+    #describe-input {
+      width: 100%;
+      min-height: 88px;
+      resize: vertical;
+    }
+    .d6-preview-wrap {
+      margin-top: 16px;
+    }
+    #preview-frame {
+      width: 100%;
+      height: 520px;
+      border: 1px solid #d8e3eb;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .d6-commit-bar {
+      display: flex;
+      gap: 12px;
+      margin: 18px 0 26px;
+    }
+  </style>
+</head>
+<body class="admin-page">
+  <main class="container d6-components">
+    <div class="brand">
+      <img src="assets/logo.png" alt="Retail Odyssey" />
+    </div>
+
+    <h1 id="editor-title">Update Components</h1>
+
+    <div id="sign-in-required" class="card hidden">
+      <p class="help-text" style="margin-top: 0;">Sign in on the admin page first.</p>
+      <a href="admin.html">Back to sign in</a>
+    </div>
+
+    <div id="editor-body" class="hidden">
+      <div class="d6-editor-bar">
+        <label for="page-picker">Page</label>
+        <select id="page-picker">
+          <option value="home">Home</option>
+          <option value="acknowledgement">Acknowledgement</option>
+          <option value="thankyou">Thank you</option>
+          <option value="receipt">Receipt</option>
+        </select>
+      </div>
+
+      <div id="editor-status" class="notice hidden" role="status" aria-live="polite"></div>
+
+      <section id="manual-mode">
+        <div id="studio-root"></div>
+      </section>
+
+      <section id="describe-mode" class="hidden">
+        <p id="prompt-line">Please describe the changes you would like to see.</p>
+        <div id="transcript" class="d6-transcript"></div>
+        <textarea id="describe-input" rows="4" aria-label="Describe the changes you would like to see"></textarea>
+        <div class="d6-preview-wrap">
+          <label for="preview-frame">Preview</label>
+          <iframe id="preview-frame" title="Preview"></iframe>
+        </div>
+      </section>
+
+      <div class="d6-commit-bar">
+        <button id="done-btn" class="secondary hidden" type="button">I&#39;m done</button>
+        <button id="commit-btn" class="primary" type="button">Commit to save all changes</button>
+      </div>
+    </div>
+
+    <p class="lead admin-back-link">
+      <a href="admin.html">← Back to admin</a>
+    </p>
+
+    <footer>
+      District 6 Compliance Hub · Admin
+    </footer>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="vendor/studio/studio-sdk.umd.js"></script>
+  <script src="vendor/studio/preset-printable.umd.js"></script>
+  <script src="js/components-editor.js"></script>
+</body>
+</html>

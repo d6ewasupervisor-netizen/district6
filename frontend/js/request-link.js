@@ -3,28 +3,37 @@
 
   const API_BASE = window.D6_CONFIG.API_BASE;
 
-  // ── Link-request form elements ──────────────────────────────────────────────
-  const emailEl   = document.getElementById('email');
-  const sendBtn   = document.getElementById('send-btn');
-  const statusEl  = document.getElementById('status');
-
-  // ── Overlay elements ────────────────────────────────────────────────────────
-  const overlay          = document.getElementById('access-overlay');
-  const overlayBackdrop  = document.getElementById('overlay-backdrop');
-  const overlayForm      = document.getElementById('overlay-form');
-  const overlaySuccess   = document.getElementById('overlay-success');
-  const overlayStatus    = document.getElementById('overlay-status');
-  const overlayName      = document.getElementById('overlay-name');
-  const overlayEmail     = document.getElementById('overlay-email');
-  const overlayReason    = document.getElementById('overlay-reason');
-  const overlaySubmit    = document.getElementById('overlay-submit');
-  const overlayCancel    = document.getElementById('overlay-cancel');
-  const overlayCloseOk   = document.getElementById('overlay-close-success');
+  // Element references are resolved after d6-content-ready: hydrating published
+  // content swaps the [data-d6-canvas] subtree, so earlier references go stale.
+  let emailEl = null;
+  let sendBtn = null;
+  let statusEl = null;
+  let overlay = null;
+  let overlayBackdrop = null;
+  let overlayForm = null;
+  let overlaySuccess = null;
+  let overlayStatus = null;
+  let overlayName = null;
+  let overlayEmail = null;
+  let overlayReason = null;
+  let overlaySubmit = null;
+  let overlayCancel = null;
+  let overlayCloseOk = null;
 
   // Phrase in the server error that should trigger the overlay
   const ACCESS_LIST_ERROR = 'not on the access list';
 
-  // ── Utilities ───────────────────────────────────────────────────────────────
+  function whenContentReady(fn) {
+    if (window.__D6_CONTENT_STATE) {
+      fn(window.__D6_CONTENT_STATE);
+      return;
+    }
+    document.addEventListener('d6-content-ready', function (e) {
+      fn((e && e.detail) || {});
+    }, { once: true });
+  }
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
 
   function isValidEmail(s) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -70,21 +79,6 @@
     document.body.classList.remove('overlay-open');
     emailEl.focus();
   }
-
-  overlayBackdrop.addEventListener('click', closeOverlay);
-  overlayCancel.addEventListener('click', closeOverlay);
-  overlayCloseOk.addEventListener('click', closeOverlay);
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
-      closeOverlay();
-    }
-  });
-
-  // Prevent clicks inside the panel from closing the overlay
-  overlay.querySelector('.access-overlay-panel').addEventListener('click', function (e) {
-    e.stopPropagation();
-  });
 
   // ── Link-request flow ────────────────────────────────────────────────────────
 
@@ -135,9 +129,6 @@
     }
   }
 
-  sendBtn.addEventListener('click', send);
-  emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
-
   // ── Access-request overlay submission ────────────────────────────────────────
 
   async function submitAccessRequest() {
@@ -186,7 +177,49 @@
     }
   }
 
-  overlaySubmit.addEventListener('click', submitAccessRequest);
-  overlayEmail.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAccessRequest(); });
-  overlayReason.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAccessRequest(); });
+  // ── Wiring (after the hydrator swaps in any published content) ───────────────
+
+  function start() {
+    emailEl   = document.getElementById('email');
+    sendBtn   = document.getElementById('send-btn');
+    statusEl  = document.getElementById('status');
+
+    overlay          = document.getElementById('access-overlay');
+    overlayBackdrop  = document.getElementById('overlay-backdrop');
+    overlayForm      = document.getElementById('overlay-form');
+    overlaySuccess   = document.getElementById('overlay-success');
+    overlayStatus    = document.getElementById('overlay-status');
+    overlayName      = document.getElementById('overlay-name');
+    overlayEmail     = document.getElementById('overlay-email');
+    overlayReason    = document.getElementById('overlay-reason');
+    overlaySubmit    = document.getElementById('overlay-submit');
+    overlayCancel    = document.getElementById('overlay-cancel');
+    overlayCloseOk   = document.getElementById('overlay-close-success');
+
+    if (!emailEl || !sendBtn || !statusEl) return;
+
+    overlayBackdrop.addEventListener('click', closeOverlay);
+    overlayCancel.addEventListener('click', closeOverlay);
+    overlayCloseOk.addEventListener('click', closeOverlay);
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+        closeOverlay();
+      }
+    });
+
+    // Prevent clicks inside the panel from closing the overlay
+    overlay.querySelector('.access-overlay-panel').addEventListener('click', function (e) {
+      e.stopPropagation();
+    });
+
+    sendBtn.addEventListener('click', send);
+    emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
+
+    overlaySubmit.addEventListener('click', submitAccessRequest);
+    overlayEmail.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAccessRequest(); });
+    overlayReason.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAccessRequest(); });
+  }
+
+  whenContentReady(start);
 })();

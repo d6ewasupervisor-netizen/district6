@@ -4,6 +4,10 @@ import { pool } from '../lib/db.js';
 import { buildSignedReceiptPDF } from '../lib/pdf.js';
 import { flushReceiptEmailOutboxOnce } from '../lib/receipt-email-outbox.js';
 import { lookupIpLocation, formatLocation } from '../lib/geo.js';
+import {
+  listActiveRequiredPolicyDocs,
+  findMissingRequiredDocViews,
+} from '../lib/component-store.js';
 
 const router = express.Router();
 
@@ -32,9 +36,23 @@ router.post('/', async (req, res) => {
   if (!viewTimestamps || typeof viewTimestamps !== 'object') {
     return res.status(400).json({ ok: false, error: 'Missing view timestamps.' });
   }
-  const { attendance, dressCode, sop } = viewTimestamps;
-  if (!isIsoDate(attendance) || !isIsoDate(dressCode) || !isIsoDate(sop)) {
-    return res.status(400).json({ ok: false, error: 'Invalid view timestamps.' });
+
+  // Every active required row in policy_documents needs a valid viewed
+  // timestamp — the set is driven by the published Acknowledgement page, not
+  // a fixed key list.
+  let requiredDocs;
+  try {
+    requiredDocs = await listActiveRequiredPolicyDocs();
+  } catch (err) {
+    console.error('[submit] policy docs lookup failed', err);
+    return res.status(500).json({ ok: false, error: 'Could not load the policy list.' });
+  }
+  const missingDocs = findMissingRequiredDocViews(requiredDocs, viewTimestamps);
+  if (missingDocs.length > 0) {
+    return res.status(400).json({
+      ok: false,
+      error: `A viewed timestamp is required for: ${missingDocs.map((d) => d.title).join(', ')}.`,
+    });
   }
 
   let payload;
@@ -55,6 +73,14 @@ router.post('/', async (req, res) => {
   const ipLocation = await lookupIpLocation(ip);
   const locationStr = formatLocation(ipLocation);
 
+  // Build the receipt document list from the required policy rows (order and
+  // titles as published) and the signer's view timestamps.
+  const documents = requiredDocs.map((doc) => ({
+    key: doc.doc_key,
+    name: doc.title,
+    viewedAt: viewTimestamps[doc.doc_key],
+  }));
+
   // Build the PDF outside the DB transaction. Inputs are all from the request body, so
   // the row lock on link_requests doesn't need to cover ~200–800ms of headless Chromium
   // rendering. Worst case on a concurrent double-submit: we waste one PDF render before
@@ -65,9 +91,7 @@ router.post('/', async (req, res) => {
       fullName: trimmedName,
       email,
       docVersion: 'Spring 2026 Edition',
-      attendanceViewedAt: attendance,
-      dressCodeViewedAt: dressCode,
-      sopViewedAt: sop,
+      documents,
       agreedAt,
       signedAt,
       ip,
@@ -99,18 +123,20 @@ router.post('/', async (req, res) => {
     const { rows: inserted } = await client.query(
       `INSERT INTO signatures (
          email, full_name, signature_data_url, doc_version,
-         attendance_viewed_at, dress_code_viewed_at, sop_viewed_at,
+         attendance_viewed_at, dress_code_viewed_at, sop_viewed_at, doc_views,
          agreed_at, signed_at, ip, user_agent, jti, pdf_bytes, location
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING id`,
       [
         email,
         trimmedName,
         signatureDataUrl,
         'Spring 2026 Edition',
-        attendance,
-        dressCode,
-        sop,
+        // Legacy columns kept for rows already stored; nullable for new doc sets.
+        viewTimestamps.attendance || null,
+        viewTimestamps.dressCode || null,
+        viewTimestamps.sop || null,
+        JSON.stringify(viewTimestamps),
         agreedAt,
         signedAt,
         ip,

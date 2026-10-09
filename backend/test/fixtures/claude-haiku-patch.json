@@ -1,0 +1,15 @@
+{
+  "id": "msg_fixture_patch",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"patch\": {\"text\": [{\"selector\": \".hero h1\", \"content\": \"District 6 Compliance Hub\"}], \"images\": [{\"selector\": \".brand img\", \"src\": \"assets/logo.png\", \"alt\": \"Retail Odyssey\"}], \"links\": [{\"selector\": \"a.admin-back-link\", \"href\": \"admin.html\", \"label\": \"Back to admin\"}], \"newBlocks\": [\"<section class=\\\"card\\\"><h2>Hours</h2></section>\"], \"removedBlocks\": [\".legacy-note\"], \"css\": \".hero h1 { letter-spacing: -0.5px; }\"}, \"summaryForPolish\": \"The admin kept the hero heading wording, reused the existing logo, linked the footer to the admin page, added an hours card below the form, removed the legacy note, and tightened heading letter-spacing.\"}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": { "input_tokens": 903, "output_tokens": 210 }
+}

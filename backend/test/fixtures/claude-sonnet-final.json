@@ -1,0 +1,15 @@
+{
+  "id": "msg_fixture_polish",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"projectJson\": {\"pages\": [{\"name\": \"home\", \"component\": \"<div class=\\\"brand\\\"><img src=\\\"assets/logo.png\\\" alt=\\\"Retail Odyssey\\\"></div><h1>District 6 Compliance Hub</h1>\", \"styles\": \".brand img { width: 100%; }\"}]}, \"html\": \"<div class=\\\"brand\\\"><img src=\\\"assets/logo.png\\\" alt=\\\"Retail Odyssey\\\"></div><h1>District 6 Compliance Hub</h1>\", \"css\": \".brand img { width: 100%; }\"}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": { "input_tokens": 1200, "output_tokens": 260 }
+}
