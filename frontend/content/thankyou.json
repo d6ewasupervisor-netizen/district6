@@ -1,0 +1,16 @@
+{
+  "pageKey": "thankyou",
+  "html": "<main class=\"container\">\r\n    <div class=\"brand\">\r\n      <img src=\"assets/logo.png\" alt=\"Retail Odyssey\" />\r\n    </div>\r\n\r\n    <section class=\"card\" style=\"text-align: center;\">\r\n      <h1>Thank you</h1>\r\n      <p>Your acknowledgement has been recorded.</p>\r\n      <p>\r\n        A copy of your signed receipt has been emailed to your supervisor with you on copy.\r\n        You can close this tab.\r\n      </p>\r\n    </section>\r\n\r\n    <footer>\r\n      District 6 Compliance Hub &middot; Spring 2026 Edition\r\n    </footer>\r\n  </main>",
+  "css": "",
+  "projectJson": {
+    "pages": [
+      {
+        "name": "thankyou",
+        "component": "<main class=\"container\">\r\n    <div class=\"brand\">\r\n      <img src=\"assets/logo.png\" alt=\"Retail Odyssey\" />\r\n    </div>\r\n\r\n    <section class=\"card\" style=\"text-align: center;\">\r\n      <h1>Thank you</h1>\r\n      <p>Your acknowledgement has been recorded.</p>\r\n      <p>\r\n        A copy of your signed receipt has been emailed to your supervisor with you on copy.\r\n        You can close this tab.\r\n      </p>\r\n    </section>\r\n\r\n    <footer>\r\n      District 6 Compliance Hub &middot; Spring 2026 Edition\r\n    </footer>\r\n  </main>",
+        "styles": ""
+      }
+    ]
+  },
+  "publishedAt": "2026-10-09T07:29:24.040Z",
+  "publishedBy": "tyson.gauthier@retailodyssey.com"
+}
