@@ -1,5 +1,13 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-08 — District 6 SMS PIN login (TACTAG sms-outbox gateway)
+
+- Added text-code sign-in through the shared TACTAG gateway (`POST /otp/send` / `POST /otp/verify`, `x-api-key`). No Twilio credentials; no `/sms/send` wrapper exists in the client so PINs can never ride a generic text (and OTP gets no owner copy).
+- New: `migrations/010_login_phones.sql` (one E.164 number per email, shared by both flows), `lib/sms-outbox.js` (ESM port of the eod-api gateway client: sendOtp/verifyOtp/status→code map/403 rule kept, district6 user copy), `lib/sms-login.js` (normalize/mask, gates, send/verify flows with injectable deps; never stores the PIN; logs email + mask only), `routes/login-sms.js` (rep), `routes/admin-login-sms.js` (admin), `routes/admin-login-phones.js` (admin phone list).
+- Rep verify issues the same `issueToken` + `link_requests` row as request-link (no email); admin verify issues `issueAdminSessionToken` like password login. Gates: rep = `isEmailAllowed`; admin = `site_admins` with `password_hash`; phone-list save = union of the two.
+- UI: Home keeps **Send my link** and adds **Text me a code** → masked number + one-time-code input + **Submit code**; admin sign-in keeps the password form with the same step; signed-in panel gains the **Text sign-in numbers** card (email, mobile number, Save number, list with Remove).
+- Tests (`test/sms-login.test.js`, node:test with mocked fetch): refusal for not-allowed email and for allowed email with no phone, `/otp/send` called with E.164 + app key header, 403 `OPT_IN_REQUIRED` surfaced as that rule (never the STOP copy), rep verify JWT passes `verifyToken`, admin verify token passes `verifyAdminSessionToken`, wrong code returns no token.
+
 ## 2026-10-08 — District 6 component editor (GrapesJS Studio SDK)
 
 - Built the visual component editor feature: GrapesJS Studio SDK (manual mode) + describe mode with a two-pass polish/publish loop, draft persistence (IndexedDB + Postgres), publish pipeline (sanitize → hook checks → policy_documents sync → component_pages upsert → one GitHub commit of allowlisted content files), public content hydration, and policy-document-driven submission validation.

@@ -42,6 +42,16 @@
   const lockBtn = document.getElementById('lock-btn');
   const updateComponentsBtn = document.getElementById('update-components-btn');
   const describeChangesBtn = document.getElementById('describe-changes-btn');
+  const loginSmsSendBtn = document.getElementById('login-sms-send-btn');
+  const loginSmsStep = document.getElementById('login-sms-step');
+  const loginSmsMasked = document.getElementById('login-sms-masked');
+  const loginSmsCode = document.getElementById('login-sms-code');
+  const loginSmsSubmitBtn = document.getElementById('login-sms-submit-btn');
+  const phoneEmailEl = document.getElementById('phone-email');
+  const phoneNumberEl = document.getElementById('phone-number');
+  const phoneSaveBtn = document.getElementById('phone-save-btn');
+  const phoneListEl = document.getElementById('phone-list');
+  const phonesStatusEl = document.getElementById('phones-status');
   const changeCurrentPwEl = document.getElementById('change-current');
   const changeNewPwEl = document.getElementById('change-new');
   const changeNewPw2El = document.getElementById('change-new2');
@@ -136,6 +146,7 @@
     hide(gateLoading);
     hide(gateAuth);
     show(adminPanel);
+    loadPhones();
   }
 
   function takeResetTokenFromUrl() {
@@ -636,6 +647,168 @@
     loginSubmit.textContent = 'Sign in';
   }
 
+  async function submitLoginSmsSend() {
+    hideNotice(loginStatusEl);
+    const email = (loginEmailEl.value || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showNotice(loginStatusEl, 'error', 'Enter a valid email address.');
+      return;
+    }
+    loginSmsSendBtn.disabled = true;
+    loginSmsSendBtn.textContent = 'Sending…';
+    try {
+      const res = await fetch(API_BASE + '/api/admin/session/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showNotice(loginStatusEl, 'error', data.error || 'Could not send a code. Try again or use email.');
+        return;
+      }
+      loginSmsMasked.textContent = data.phoneMask || '—';
+      loginSmsStep.classList.remove('hidden');
+      loginSmsCode.value = '';
+      loginSmsCode.focus();
+    } catch (_err) {
+      showNotice(loginStatusEl, 'error', 'Network error.');
+    } finally {
+      loginSmsSendBtn.disabled = false;
+      loginSmsSendBtn.textContent = 'Text me a code';
+    }
+  }
+
+  async function submitLoginSmsCode() {
+    hideNotice(loginStatusEl);
+    const email = (loginEmailEl.value || '').trim().toLowerCase();
+    const code = (loginSmsCode.value || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showNotice(loginStatusEl, 'error', 'Enter a valid email address.');
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      showNotice(loginStatusEl, 'error', 'Enter the 6-digit code from your text.');
+      return;
+    }
+    loginSmsSubmitBtn.disabled = true;
+    loginSmsSubmitBtn.textContent = 'Submitting…';
+    try {
+      const res = await fetch(API_BASE + '/api/admin/session/sms/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, code: code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showNotice(loginStatusEl, 'error', data.error || 'Could not verify the code. Try again or use email.');
+        return;
+      }
+      setJwt(data.token);
+      signedInAsEl.textContent = 'Signed in as ' + (data.email || '');
+      loginSmsCode.value = '';
+      showPanel();
+      await refreshList();
+    } catch (_err) {
+      showNotice(loginStatusEl, 'error', 'Network error.');
+    } finally {
+      loginSmsSubmitBtn.disabled = false;
+      loginSmsSubmitBtn.textContent = 'Submit code';
+    }
+  }
+
+  // ── Text sign-in numbers ───────────────────────────────────────────────────
+
+  function renderPhones(phones) {
+    phoneListEl.textContent = '';
+    (phones || []).forEach(function (row) {
+      const div = document.createElement('div');
+      div.style.display = 'flex';
+      div.style.alignItems = 'center';
+      div.style.justifyContent = 'space-between';
+      div.style.gap = '10px';
+      div.style.padding = '6px 0';
+      div.style.borderTop = '1px solid #e7e5e4';
+      const label = document.createElement('span');
+      label.textContent = row.email + ' · ' + row.phone_e164;
+      label.style.fontSize = '14px';
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'secondary';
+      rm.textContent = 'Remove';
+      rm.addEventListener('click', function () { removePhone(row.email); });
+      div.appendChild(label);
+      div.appendChild(rm);
+      phoneListEl.appendChild(div);
+    });
+  }
+
+  async function loadPhones() {
+    try {
+      const res = await fetch(API_BASE + '/api/admin/login-phones', { headers: authHeaders() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) return;
+      renderPhones(data.phones || []);
+    } catch (_err) {
+      // List stays as-is on transient failures.
+    }
+  }
+
+  async function savePhone() {
+    hideNotice(phonesStatusEl);
+    const email = (phoneEmailEl.value || '').trim().toLowerCase();
+    const phone = (phoneNumberEl.value || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showNotice(phonesStatusEl, 'error', 'Enter a valid email address.');
+      return;
+    }
+    if (!phone) {
+      showNotice(phonesStatusEl, 'error', 'Enter a mobile number.');
+      return;
+    }
+    phoneSaveBtn.disabled = true;
+    phoneSaveBtn.textContent = 'Saving…';
+    try {
+      const res = await fetch(API_BASE + '/api/admin/login-phones', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ email: email, phone: phone }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showNotice(phonesStatusEl, 'error', data.error || 'Could not save the number.');
+        return;
+      }
+      showNotice(phonesStatusEl, 'ok', 'Saved.');
+      phoneNumberEl.value = '';
+      await loadPhones();
+    } catch (_err) {
+      showNotice(phonesStatusEl, 'error', 'Network error.');
+    } finally {
+      phoneSaveBtn.disabled = false;
+      phoneSaveBtn.textContent = 'Save number';
+    }
+  }
+
+  async function removePhone(email) {
+    hideNotice(phonesStatusEl);
+    try {
+      const res = await fetch(API_BASE + '/api/admin/login-phones', {
+        method: 'DELETE',
+        headers: authHeaders(),
+        body: JSON.stringify({ email: email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showNotice(phonesStatusEl, 'error', data.error || 'Could not remove the number.');
+        return;
+      }
+      await loadPhones();
+    } catch (_err) {
+      showNotice(phonesStatusEl, 'error', 'Network error.');
+    }
+  }
+
   async function submitForgotPassword() {
     hideNotice(forgotStatusEl);
     const email = (forgotEmailEl.value || '').trim().toLowerCase();
@@ -792,6 +965,11 @@
   describeChangesBtn.addEventListener('click', function () {
     location.href = 'components.html?mode=describe';
   });
+
+  loginSmsSendBtn.addEventListener('click', submitLoginSmsSend);
+  loginSmsSubmitBtn.addEventListener('click', submitLoginSmsCode);
+  loginSmsCode.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitLoginSmsCode(); });
+  phoneSaveBtn.addEventListener('click', savePhone);
 
   lockBtn.addEventListener('click', function () {
     clearJwt();

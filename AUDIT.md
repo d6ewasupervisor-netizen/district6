@@ -11,8 +11,11 @@
 - **Public hydration**: `frontend/js/content-hydrate.js` runs before `request-link.js`/`sign.js`, fetches `GET /api/content/:pageKey` (30s cache), swaps `[data-d6-canvas]`, injects CSS, dispatches `d6-content-ready`; on failure the file HTML stays. `sign.js` reads `[data-doc]` from the canvas after that event; `submit.js` requires a viewed timestamp per active required `policy_documents` row and stores `doc_views jsonb` (legacy `*_viewed_at` columns kept, now nullable).
 - **Env**: `backend/lib/env-file.js` loads the repo-root `.env` for names not already in the process environment (local runs only; Railway must set the same names in the dashboard). `GRAPESJS_API_KEY` is server-only; `GRAPESJS_PUBLIC_KEY` is returned by `GET /api/admin/components/studio-config` as the Studio licenseKey.
 
+- **SMS PIN login**: codes go through the TACTAG sms-outbox gateway (`POST /otp/send` / `POST /otp/verify`, header `x-api-key`, env `SMS_OUTBOX_KEY` / `SMS_OUTBOX_URL`; app slug `district6` in the gateway's `APP_KEYS`). The gateway owns the 6-digit code (10-min TTL, hashed, 3 sends per phone per 10 min, 5 verify attempts, single-use). `backend/lib/sms-outbox.js` is an OTP-only client (no `/sms/send` wrapper — PINs never ride generic texts, no owner copy). `backend/lib/sms-login.js` holds the flows: `login_phones` (one E.164 number per email, shared by both flows, `+1***1234` masks everywhere except the admin phone list), rep verify → `issueToken` + `link_requests` (no email), admin verify → `issueAdminSessionToken`. Gates: rep = `isEmailAllowed`, admin = `site_admins` with `password_hash`, phone-list save = union. PINs are never stored; logs carry email + mask only. 403 rules surface distinct copy (JOIN vs STOP vs cap vs flood) — never collapsed.
+
 ## Open
 
 - Railway dashboard steps (secrets + watch path) are manual — see ROADMAP.md.
+- SMS PIN secrets are manual (see ROADMAP.md): `district6:<key>` in the gateway's `APP_KEYS`, `SMS_OUTBOX_KEY` on this service. Until set, text sign-in returns "Text sign-in is not set up. Use email."
 - One GitHub commit uses the Git Data API rather than the single-file Contents API (multi-file commits are only possible that way).
 - Sanitizer is regex/tag-walk based (no HTML parser dependency); attribute values containing `>` are a known edge limitation.

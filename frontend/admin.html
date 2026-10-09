@@ -90,7 +90,23 @@
           spellcheck="false"
         />
         <button id="login-submit" class="primary" type="button">Sign in</button>
+        <button id="login-sms-send-btn" class="secondary" type="button">Text me a code</button>
         <button id="login-forgot-link" type="button" class="admin-inline-link">Forgot password?</button>
+
+        <div id="login-sms-step" class="hidden">
+          <p class="help-text" style="margin-bottom: 8px;">Code texted to <span id="login-sms-masked">—</span></p>
+          <label for="login-sms-code">Code</label>
+          <input
+            id="login-sms-code"
+            type="text"
+            autocomplete="one-time-code"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="123456"
+            spellcheck="false"
+          />
+          <button id="login-sms-submit-btn" class="primary" type="button">Submit code</button>
+        </div>
       </section>
 
       <section id="forgot-section" class="card hidden" aria-labelledby="forgot-heading">
@@ -233,6 +249,30 @@
             <tbody id="list-body"></tbody>
           </table>
         </div>
+      </section>
+      <section class="card" aria-labelledby="phones-heading">
+        <h2 id="phones-heading">Text sign-in numbers</h2>
+        <div id="phones-status" class="notice hidden" role="status" aria-live="polite"></div>
+        <label for="phone-email">Email</label>
+        <input
+          id="phone-email"
+          type="email"
+          autocomplete="off"
+          inputmode="email"
+          spellcheck="false"
+          autocapitalize="none"
+        />
+        <label for="phone-number">Mobile number</label>
+        <input
+          id="phone-number"
+          type="tel"
+          autocomplete="tel"
+          inputmode="tel"
+          placeholder="(509) 555-1234"
+          spellcheck="false"
+        />
+        <button id="phone-save-btn" class="primary" type="button">Save number</button>
+        <div id="phone-list"></div>
       </section>
     </div>
 

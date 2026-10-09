@@ -37,6 +37,22 @@
       <p class="help-text">Enter the email address your supervisor has on file.</p>
 
       <button id="send-btn" class="primary" type="button">Send my link</button>
+      <button id="sms-send-btn" class="secondary" type="button">Text me a code</button>
+
+      <div id="sms-step" class="hidden">
+        <p class="help-text" style="margin-bottom: 8px;">Code texted to <span id="sms-masked">—</span></p>
+        <label for="sms-code">Code</label>
+        <input
+          id="sms-code"
+          type="text"
+          autocomplete="one-time-code"
+          inputmode="numeric"
+          maxlength="6"
+          placeholder="123456"
+          spellcheck="false"
+        />
+        <button id="sms-submit-btn" class="primary" type="button">Submit code</button>
+      </div>
     </section>
 
     <p class="lead" style="margin-top: 24px; font-size: 14px;">

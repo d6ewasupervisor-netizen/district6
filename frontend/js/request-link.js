@@ -8,6 +8,11 @@
   let emailEl = null;
   let sendBtn = null;
   let statusEl = null;
+  let smsSendBtn = null;
+  let smsStep = null;
+  let smsMasked = null;
+  let smsCode = null;
+  let smsSubmitBtn = null;
   let overlay = null;
   let overlayBackdrop = null;
   let overlayForm = null;
@@ -129,6 +134,74 @@
     }
   }
 
+  // ── SMS PIN flow ─────────────────────────────────────────────────────────────
+
+  async function sendSmsCode() {
+    hideStatus();
+    const email = (emailEl.value || '').trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      showStatus('error', 'Please enter a valid email address.');
+      return;
+    }
+    smsSendBtn.disabled = true;
+    smsSendBtn.textContent = 'Sending…';
+    try {
+      const res = await fetch(API_BASE + '/api/login/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok || !data.ok) {
+        showStatus('error', data.error || 'Could not send a code. Try again or use email.');
+        return;
+      }
+      smsMasked.textContent = data.phoneMask || '—';
+      smsStep.classList.remove('hidden');
+      smsCode.value = '';
+      smsCode.focus();
+    } catch (err) {
+      showStatus('error', 'Network error. Please try again.');
+    } finally {
+      smsSendBtn.disabled = false;
+      smsSendBtn.textContent = 'Text me a code';
+    }
+  }
+
+  async function submitSmsCode() {
+    hideStatus();
+    const email = (emailEl.value || '').trim().toLowerCase();
+    const code = (smsCode.value || '').trim();
+    if (!isValidEmail(email)) {
+      showStatus('error', 'Please enter a valid email address.');
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      showStatus('error', 'Enter the 6-digit code from your text.');
+      return;
+    }
+    smsSubmitBtn.disabled = true;
+    smsSubmitBtn.textContent = 'Submitting…';
+    try {
+      const res = await fetch(API_BASE + '/api/login/sms/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok || !data.ok) {
+        showStatus('error', data.error || 'Could not verify the code. Try again or use email.');
+        return;
+      }
+      location.href = 'sign.html?token=' + encodeURIComponent(data.token);
+    } catch (err) {
+      showStatus('error', 'Network error. Please try again.');
+    } finally {
+      smsSubmitBtn.disabled = false;
+      smsSubmitBtn.textContent = 'Submit code';
+    }
+  }
+
   // ── Access-request overlay submission ────────────────────────────────────────
 
   async function submitAccessRequest() {
@@ -183,6 +256,11 @@
     emailEl   = document.getElementById('email');
     sendBtn   = document.getElementById('send-btn');
     statusEl  = document.getElementById('status');
+    smsSendBtn = document.getElementById('sms-send-btn');
+    smsStep = document.getElementById('sms-step');
+    smsMasked = document.getElementById('sms-masked');
+    smsCode = document.getElementById('sms-code');
+    smsSubmitBtn = document.getElementById('sms-submit-btn');
 
     overlay          = document.getElementById('access-overlay');
     overlayBackdrop  = document.getElementById('overlay-backdrop');
@@ -215,6 +293,12 @@
 
     sendBtn.addEventListener('click', send);
     emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
+
+    if (smsSendBtn && smsStep && smsCode && smsSubmitBtn) {
+      smsSendBtn.addEventListener('click', sendSmsCode);
+      smsSubmitBtn.addEventListener('click', submitSmsCode);
+      smsCode.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitSmsCode(); });
+    }
 
     overlaySubmit.addEventListener('click', submitAccessRequest);
     overlayEmail.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitAccessRequest(); });

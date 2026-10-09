@@ -14,6 +14,9 @@ import accessRequestRouter from './routes/access-request.js';
 import accessRequestDecisionRouter from './routes/access-request-decision.js';
 import adminComponentsRouter from './routes/admin-components.js';
 import publicContentRouter from './routes/public-content.js';
+import loginSmsRouter from './routes/login-sms.js';
+import adminLoginSmsRouter from './routes/admin-login-sms.js';
+import adminLoginPhonesRouter from './routes/admin-login-phones.js';
 
 const app = express();
 
@@ -65,8 +68,11 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/admin/session', adminSessionRouter);
+app.use('/api/admin/session/sms', adminLoginSmsRouter);
 app.use('/api/admin/allowed-emails', adminAllowedEmailsRouter);
+app.use('/api/admin/login-phones', adminLoginPhonesRouter);
 app.use('/api/request-link', requestLinkRouter);
+app.use('/api/login/sms', loginSmsRouter);
 app.use('/api/verify-token', verifyTokenRouter);
 app.use('/api/submit', submitRouter);
 app.use('/api/access-request', accessRequestRouter);

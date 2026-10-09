@@ -61,6 +61,7 @@ For production, edit `frontend/js/config.js` so the non-localhost branch points 
    - `PGSSL` *(optional)* — `disable` | `require` | `no-verify` | `verify-full`. Leave unset to honor `sslmode=` in `DATABASE_URL`. Set `require` for the Railway public TCP proxy; leave unset (or `disable`) for the `*.railway.internal` private hostname.
    - `LINK_TTL_DAYS` — defaults to 30 if omitted.
    - Component editor: `GRAPESJS_PUBLIC_KEY` and `GRAPESJS_API_KEY` (same values as the gitignored repo-root `.env`; that file never deploys), `ANTHROPIC_API_KEY` (content editing calls), `GITHUB_TOKEN` (fine-grained, contents: write) and `GITHUB_REPO=d6ewasupervisor-netizen/district6` (publish commits).
+   - SMS PIN login: `SMS_OUTBOX_KEY` (the `district6` app key from the sms-outbox gateway's `APP_KEYS`; never commit or print it). `SMS_OUTBOX_URL` is optional and defaults to `https://sms-outbox-production.up.railway.app`.
    - **Watch Path** (Service → Settings): set to `/backend/**`. Content publishes only commit `frontend/**` files, so with the watch path set they never rebuild the API image. The one-time feature push changes `backend/` and does deploy.
 6. Deploy. Migrations run automatically on every boot. The `schema_migrations` table tracks which files have already been applied, so re-running the same image is a no-op.
 7. Update `frontend/js/config.js` `API_BASE` to the Railway-issued URL and push.
@@ -154,6 +155,17 @@ Public pages hydrate via `frontend/js/content-hydrate.js` → `GET /api/content/
 Editing is driven by two content passes against the Messages API (`backend/lib/claude-components.js`, server-only): a layout pass that asks up to three clarifying questions then applies changes to the draft, and a finish pass that runs on **I'm done** or automatically before Commit if it has not run yet.
 
 **Railway watch path:** `Service → Settings → Watch Path = /backend/**`. Content publishes commit `frontend/**` only, so they never rebuild the API/Chromium image — publishing is live on the next page load via Postgres plus the Pages content files.
+
+## SMS PIN login (text a code)
+
+In addition to the email link and the admin password, both sign-in screens offer **Text me a code**. The 6-digit PIN goes through the shared TACTAG sms-outbox gateway (District 6 never holds Twilio credentials):
+
+- Home: posts the email in the box to `POST /api/login/sms/send`, shows the masked number (`+1***1234`) plus one code input, then `POST /api/login/sms/verify` returns the same tokenized link as `request-link` (no link email) and opens `sign.html?token=…`.
+- Admin sign-in: `POST /api/admin/session/sms/send` / `verify` with the email in the sign-in box; verify returns the same admin JWT as the password form.
+- A code is sent only when the email is already allowed to sign in on that surface (reps: `isEmailAllowed`; admins: `site_admins` with a password set) **and** a mobile number is stored in `login_phones`. Without a number: "No mobile number is on file for this email. Use the email sign-in instead."
+- Numbers are managed from the signed-in admin panel card **Text sign-in numbers** (save allowed for allowed emails or `site_admins` rows; the list is the only place full numbers show).
+
+Gateway setup (values never printed or committed): generate a key for app slug `district6`, append `district6:<key>` to Railway `APP_KEYS` on the sms-outbox service, then set only `<key>` as `SMS_OUTBOX_KEY` on this service (`SMS_OUTBOX_URL` is optional and defaults to the production gateway). PIN sends use `/otp/send` + `/otp/verify` only, and OTP gets no owner copy.
 
 ## File layout
 
