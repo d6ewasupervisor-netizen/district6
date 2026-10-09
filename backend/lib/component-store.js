@@ -13,8 +13,22 @@ import { query } from './db.js';
 
 export const PAGE_KEYS = ['home', 'acknowledgement', 'thankyou', 'receipt'];
 
+/** Policy and reference documents. slug is the HTML file; pdf is what the hub opens. */
+export const DOCUMENTS = {
+  'doc-attendance': { slug: 'attendance', pdf: 'attendance.pdf', title: 'Attendance & Timekeeping' },
+  'doc-dress-code': { slug: 'dress-code', pdf: 'dress-code.pdf', title: 'Dress Code' },
+  'doc-sop': { slug: 'sop', pdf: 'sop.pdf', title: 'Standard Operating Procedures' },
+  'doc-handbook': { slug: 'handbook', pdf: 'handbook.pdf', title: 'Teammate Handbook' },
+  'doc-kompass': { slug: 'kompass', pdf: 'kompass.pdf', title: 'Kompass Responsibilities' },
+  'doc-vendor': { slug: 'vendor', pdf: 'vendor.pdf', title: 'Fred Meyer Vendor Policies' },
+};
+
 export function isPageKey(value) {
   return PAGE_KEYS.includes(value);
+}
+
+export function isEditorKey(value) {
+  return isPageKey(value) || Object.prototype.hasOwnProperty.call(DOCUMENTS, value);
 }
 
 // ── Drafts ───────────────────────────────────────────────────────────────────

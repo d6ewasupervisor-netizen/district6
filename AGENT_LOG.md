@@ -1,5 +1,9 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-09 — Documents are the editor's first screen
+
+- Update Components opens the six documents first (Attendance, Dress Code, SOP, Handbook, Kompass, Vendor), then the four hub pages. Each one opens alone, full window, in the drag-and-drop editor. The document text was pulled from the current PDFs. Commit on a document writes the PDF the hub opens, plus the editable HTML.
+
 ## 2026-10-09 — Page editor shows the page
 
 - Update Components and Describe your changes now render the Home, Acknowledgement, Thank you, and Receipt pages at full width. Words are edited on the page. Pictures and links use a bar along the bottom. The editor no longer loads the studio canvas, so it does not show source or ask for another sign-in when switching pages.

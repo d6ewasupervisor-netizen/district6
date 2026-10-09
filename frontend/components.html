@@ -8,183 +8,97 @@
   <link rel="icon" type="image/png" href="favicon.png?v=2">
   <link rel="apple-touch-icon" href="favicon.png?v=2">
   <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="vendor/studio/studio-sdk.css" />
   <style>
-    body.d6-editor-page {
-      background: #d9e2ec;
-      min-height: 100vh;
-    }
-    .d6-top {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 12px 20px;
-      background: #fff;
-      border-bottom: 1px solid #c5d0dc;
-    }
-    .d6-back {
-      color: var(--navy);
-      font-size: 14px;
-      font-weight: 600;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-    .d6-pages {
-      display: flex;
-      flex: 1;
-      gap: 8px;
-      min-width: 0;
-    }
-    .d6-pages button {
-      flex: 1;
-      min-width: 0;
-      min-height: 44px;
-      padding: 8px 10px;
-      border: 1px solid #c5d0dc;
-      border-radius: 8px;
-      background: #fff;
-      color: var(--navy);
-      font: inherit;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .d6-pages button[aria-pressed="true"] {
-      background: var(--navy);
-      border-color: var(--navy);
-      color: #fff;
-    }
-    .d6-top .primary {
-      min-height: 44px;
-      white-space: nowrap;
-      width: auto;
-      margin: 0;
-    }
-    #editor-status {
-      margin: 0;
-      border-radius: 0;
-    }
-    #sign-in-required {
-      max-width: 520px;
-      margin: 40px auto;
-    }
-    #describe-band {
-      background: #fff;
-      border-bottom: 1px solid #c5d0dc;
-      padding: 16px 20px 18px;
-    }
-    #prompt-line {
-      margin: 0 0 10px;
-      font-weight: 600;
-    }
-    #transcript {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    #transcript:empty { display: none; }
-    .d6-msg {
-      padding: 8px 12px;
-      border-radius: 8px;
-      max-width: 760px;
-    }
-    .d6-msg-admin {
-      background: #e8f2fb;
-      border: 1px solid #c5d0dc;
-      align-self: flex-end;
-    }
-    .d6-msg-page {
-      background: #fff;
-      border: 1px solid #c5d0dc;
-      align-self: flex-start;
-    }
-    #describe-input {
-      width: 100%;
+    html, body.d6-editor-page { height: 100%; margin: 0; background: #e7eef5; }
+    .d6-chooser { max-width: 980px; margin: 0 auto; padding: 28px 20px 60px; }
+    .d6-chooser h1 { margin: 8px 0 4px; }
+    .d6-chooser h2 { margin: 28px 0 12px; font-size: 18px; }
+    .d6-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .d6-grid button {
       min-height: 72px;
-      resize: vertical;
-      margin: 0;
-    }
-    .d6-stage-scroll {
-      padding: 28px 24px 96px;
-    }
-    #page-stage [contenteditable="true"]:focus {
-      outline: 2px solid #5BA8E0;
-      outline-offset: 3px;
-      border-radius: 4px;
-    }
-    #page-stage img {
+      padding: 16px 18px;
+      text-align: left;
+      font: inherit;
+      font-weight: 650;
+      font-size: 17px;
+      color: var(--navy);
+      background: #fff;
+      border: 1px solid #c5d0dc;
+      border-radius: 12px;
       cursor: pointer;
     }
-    #piece-bar {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 40;
+    .d6-grid button small { display: block; font-weight: 500; color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+    .d6-grid-hub button { min-height: 56px; font-size: 16px; }
+    .d6-top {
+      height: 60px;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+      gap: 14px;
+      padding: 0 16px;
       background: #fff;
-      border-top: 1px solid #c5d0dc;
+      border-bottom: 1px solid #c5d0dc;
     }
-    #piece-link-label {
-      margin: 0;
-      white-space: nowrap;
-    }
-    #piece-link {
-      flex: 1;
-      margin: 0;
-    }
-    #piece-image {
+    .d6-top button, .d6-top .d6-back {
       margin: 0;
       width: auto;
+      min-height: 40px;
+    }
+    .d6-title { flex: 1; font-weight: 700; color: var(--navy); }
+    .d6-back { color: var(--navy); font-weight: 600; background: none; border: 0; cursor: pointer; font: inherit; }
+    #describe-band { background: #fff; border-bottom: 1px solid #c5d0dc; padding: 12px 16px 14px; }
+    #prompt-line { margin: 0 0 8px; font-weight: 600; }
+    #describe-input { width: 100%; min-height: 64px; margin: 0; }
+    #transcript { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+    #transcript:empty { display: none; }
+    .d6-msg { padding: 8px 12px; border-radius: 8px; max-width: 760px; }
+    .d6-msg-admin { background: #e8f2fb; align-self: flex-end; }
+    .d6-msg-page { background: #fff; border: 1px solid #c5d0dc; align-self: flex-start; }
+    #studio-root { height: calc(100vh - 60px); width: 100%; background: #d5dee8; }
+    body.d6-describe #studio-root { height: calc(100vh - 60px - 150px); }
+    #editor-status { margin: 0; border-radius: 0; }
+    @media (max-width: 720px) {
+      .d6-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body class="d6-editor-page">
-  <div id="sign-in-required" class="card hidden">
+  <div id="sign-in-required" class="card hidden" style="max-width: 520px; margin: 40px auto;">
     <p class="help-text" style="margin-top: 0;">Sign in on the admin page first.</p>
     <a href="admin.html">Back to sign in</a>
   </div>
 
-  <div id="editor-body" class="hidden">
-    <header class="d6-top">
-      <a class="d6-back" href="admin.html">← Admin</a>
-      <div class="d6-pages" role="tablist">
-        <button type="button" data-page="home" aria-pressed="true">Home</button>
-        <button type="button" data-page="acknowledgement" aria-pressed="false">Acknowledgement</button>
-        <button type="button" data-page="thankyou" aria-pressed="false">Thank you</button>
-        <button type="button" data-page="receipt" aria-pressed="false">Receipt</button>
-      </div>
-      <button id="done-btn" class="secondary hidden" type="button">I'm done</button>
-      <button id="commit-btn" class="primary" type="button">Commit to save all changes</button>
-    </header>
-
-    <div id="editor-status" class="notice hidden" role="status" aria-live="polite"></div>
-
-    <section id="describe-band" class="hidden">
-      <p id="prompt-line">Please describe the changes you would like to see.</p>
-      <div id="transcript"></div>
-      <textarea id="describe-input" rows="3" aria-label="Describe the changes you would like to see"></textarea>
-    </section>
-
-    <div class="d6-stage-scroll">
-      <style id="draft-css"></style>
-      <div id="page-stage"></div>
-    </div>
-
-    <div id="piece-bar" class="hidden">
-      <label id="piece-link-label" for="piece-link" class="hidden">Link</label>
-      <input id="piece-link" type="url" class="hidden" autocomplete="off" spellcheck="false" />
-      <button id="piece-image" class="secondary hidden" type="button">Replace image</button>
-      <input id="piece-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" />
+  <div id="chooser">
+    <div class="d6-chooser">
+      <a href="admin.html">← Admin</a>
+      <h1 id="chooser-title">Update Components</h1>
+      <div id="editor-status-chooser" class="notice hidden" role="status"></div>
+      <h2>Documents</h2>
+      <div class="d6-grid" id="doc-grid"></div>
+      <h2>Hub pages</h2>
+      <div class="d6-grid d6-grid-hub" id="hub-grid"></div>
     </div>
   </div>
 
+  <div id="workspace" class="hidden">
+    <header class="d6-top">
+      <button type="button" class="d6-back" id="back-btn">← Documents</button>
+      <div class="d6-title" id="work-title"></div>
+      <button id="done-btn" class="secondary hidden" type="button">I'm done</button>
+      <button id="commit-btn" class="primary" type="button">Commit to save all changes</button>
+    </header>
+    <div id="editor-status" class="notice hidden" role="status"></div>
+    <section id="describe-band" class="hidden">
+      <p id="prompt-line">Please describe the changes you would like to see.</p>
+      <div id="transcript"></div>
+      <textarea id="describe-input" rows="2" aria-label="Describe the changes you would like to see"></textarea>
+    </section>
+    <div id="studio-root"></div>
+  </div>
+
   <script src="js/config.js"></script>
+  <script src="vendor/studio/studio-sdk.umd.js"></script>
+  <script src="vendor/studio/preset-printable.umd.js"></script>
   <script src="js/components-editor.js"></script>
 </body>
 </html>

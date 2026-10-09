@@ -21,6 +21,7 @@ const COMMIT_MESSAGE = 'Publish District 6 page content';
 
 const ALLOWED_PREFIXES = [
   /^frontend\/content\/[a-z0-9-]+\.(json|css)$/,
+  /^frontend\/content\/docs\/[a-z0-9-]+\.html$/,
   /^frontend\/docs\/[^/]+$/,
   /^frontend\/assets\/uploads\/[^/]+$/,
 ];

@@ -142,3 +142,21 @@ export async function renderReceiptPDF(data) {
     await page.close().catch(() => {});
   }
 }
+
+/** Letter PDF from a complete HTML document. Used when an admin publishes a policy. */
+export async function renderLetterPDF(htmlDocument) {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setContent(htmlDocument, { waitUntil: 'networkidle0' });
+    const pdf = await page.pdf({
+      format: 'Letter',
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    });
+    return Buffer.isBuffer(pdf) ? pdf : Buffer.from(pdf);
+  } finally {
+    await page.close().catch(() => {});
+  }
+}

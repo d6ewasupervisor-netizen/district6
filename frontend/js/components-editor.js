@@ -1,7 +1,7 @@
 /*
- * Page editor. The page on screen is the page that gets saved.
- * Click the words to change them. Click a picture to replace it. Click a
- * link to change where it goes. Nothing here opens another sign-in.
+ * Chooser, then a full-window editor.
+ * Documents (the PDFs people read) come first. Hub pages are second.
+ * One document or one page is open at a time. Switching does not leave this screen.
  */
 (function () {
   'use strict';
@@ -11,45 +11,56 @@
   const IDB_NAME = 'd6-component-drafts';
   const IDB_STORE = 'pages';
   const SAVE_DEBOUNCE_MS = 400;
-  const LAST_PAGE_KEY = 'd6-components-page';
 
-  const PAGES = {
-    home: { key: 'home', file: 'index.html' },
-    acknowledgement: { key: 'acknowledgement', file: 'sign.html' },
-    thankyou: { key: 'thankyou', file: 'thanks.html' },
-    receipt: { key: 'receipt', file: null },
-  };
+  const DOCS = [
+    { key: 'doc-attendance', title: 'Attendance & Timekeeping', file: 'content/docs/attendance.html', kind: 'Required policy' },
+    { key: 'doc-dress-code', title: 'Dress Code', file: 'content/docs/dress-code.html', kind: 'Required policy' },
+    { key: 'doc-sop', title: 'Standard Operating Procedures', file: 'content/docs/sop.html', kind: 'Required policy' },
+    { key: 'doc-handbook', title: 'Teammate Handbook', file: 'content/docs/handbook.html', kind: 'Reference' },
+    { key: 'doc-kompass', title: 'Kompass Responsibilities', file: 'content/docs/kompass.html', kind: 'Reference' },
+    { key: 'doc-vendor', title: 'Fred Meyer Vendor Policies', file: 'content/docs/vendor.html', kind: 'Reference' },
+  ];
 
-  const TEXT_SELECTOR = 'h1,h2,h3,h4,p,li,a,button,span,label,footer,td,th,figcaption';
+  const HUBS = [
+    { key: 'home', title: 'Home', file: 'index.html' },
+    { key: 'acknowledgement', title: 'Acknowledgement', file: 'sign.html' },
+    { key: 'thankyou', title: 'Thank you', file: 'thanks.html' },
+    { key: 'receipt', title: 'Receipt', file: null },
+  ];
+
+  const DOC_CSS = [
+    '.d6-doc-page { background:#fff; padding: 8px 4px 28px; }',
+    '.d6-doc-page h2 { font-size: 22px; line-height: 1.25; margin: 0 0 10px; color: #1A3A6E; }',
+    '.d6-doc-page h3 { font-size: 16px; margin: 18px 0 6px; color: #1A3A6E; }',
+    '.d6-doc-page p { font-size: 15px; line-height: 1.45; margin: 0 0 8px; }',
+  ].join('\n');
+
+  const mode = new URLSearchParams(location.search).get('mode') === 'describe' ? 'describe' : 'manual';
 
   const els = {
-    signInRequired: document.getElementById('sign-in-required'),
-    editorBody: document.getElementById('editor-body'),
+    chooser: document.getElementById('chooser'),
+    chooserTitle: document.getElementById('chooser-title'),
+    docGrid: document.getElementById('doc-grid'),
+    hubGrid: document.getElementById('hub-grid'),
+    workspace: document.getElementById('workspace'),
+    backBtn: document.getElementById('back-btn'),
+    workTitle: document.getElementById('work-title'),
     status: document.getElementById('editor-status'),
     describeBand: document.getElementById('describe-band'),
     transcript: document.getElementById('transcript'),
     describeInput: document.getElementById('describe-input'),
-    stage: document.getElementById('page-stage'),
-    draftCss: document.getElementById('draft-css'),
+    studioRoot: document.getElementById('studio-root'),
     doneBtn: document.getElementById('done-btn'),
     commitBtn: document.getElementById('commit-btn'),
-    pieceBar: document.getElementById('piece-bar'),
-    pieceLinkLabel: document.getElementById('piece-link-label'),
-    pieceLink: document.getElementById('piece-link'),
-    pieceImage: document.getElementById('piece-image'),
-    pieceFile: document.getElementById('piece-file'),
-    pageButtons: Array.from(document.querySelectorAll('.d6-pages button')),
+    signInRequired: document.getElementById('sign-in-required'),
   };
 
-  const mode =
-    new URLSearchParams(location.search).get('mode') === 'describe' ? 'describe' : 'manual';
-
-  let currentPageKey = 'home';
+  let current = null;
   let draft = null;
+  let studioEditor = null;
+  let siteCssText = '';
   let saveTimer = null;
   let saving = false;
-  let selectedLink = null;
-  let selectedImage = null;
   let questionsAsked = 0;
   const history = [];
 
@@ -57,14 +68,12 @@
     try { return sessionStorage.getItem(JWT_KEY) || ''; } catch (_e) { return ''; }
   }
 
-  function showStatus(kind, msg) {
+  function showStatus(msg, kind) {
     els.status.className = 'notice ' + (kind === 'error' ? 'notice-error' : 'notice-ok');
     els.status.textContent = msg;
     els.status.classList.remove('hidden');
   }
-  function hideStatus() {
-    els.status.classList.add('hidden');
-  }
+  function hideStatus() { els.status.classList.add('hidden'); }
 
   function authHeaders() {
     return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + jwt() };
@@ -77,31 +86,22 @@
       headers: authHeaders(),
       body: opts.body,
     });
-    if (res.status === 401) {
-      showStatus('error', 'Sign in on the admin page first.');
-    }
+    if (res.status === 401) showStatus('Sign in on the admin page first.', 'error');
     return res;
   }
 
-  function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        resolve(result.slice(result.indexOf(',') + 1));
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  function targetByKey(key) {
+    return DOCS.find((d) => d.key === key) || HUBS.find((h) => h.key === key) || null;
   }
+
+  function isDoc(key) { return key.indexOf('doc-') === 0; }
 
   function openDb() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(IDB_NAME, 1);
       req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains(IDB_STORE)) {
-          db.createObjectStore(IDB_STORE, { keyPath: 'pageKey' });
+        if (!req.result.objectStoreNames.contains(IDB_STORE)) {
+          req.result.createObjectStore(IDB_STORE, { keyPath: 'pageKey' });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -113,14 +113,11 @@
     try {
       const db = await openDb();
       return await new Promise((resolve, reject) => {
-        const tx = db.transaction(IDB_STORE, 'readonly');
-        const req = tx.objectStore(IDB_STORE).get(pageKey);
+        const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(pageKey);
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => reject(req.error);
       });
-    } catch (_e) {
-      return null;
-    }
+    } catch (_e) { return null; }
   }
 
   async function idbPut(record) {
@@ -132,23 +129,7 @@
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
-    } catch (_e) { /* server copy still exists */ }
-  }
-
-  function readStageHtml() {
-    const clone = els.stage.cloneNode(true);
-    clone.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
-    return clone.innerHTML;
-  }
-
-  function toDraftRecord() {
-    return {
-      pageKey: draft.pageKey,
-      projectJson: draft.projectJson || {},
-      html: draft.html || '',
-      css: draft.css || '',
-      updatedAt: draft.updatedAt,
-    };
+    } catch (_e) { /* server copy remains */ }
   }
 
   function pickNewer(a, b) {
@@ -158,216 +139,209 @@
   }
 
   async function fetchServerDraft(pageKey) {
-    try {
-      const res = await api('/api/admin/components/draft/' + pageKey);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok || !data.draft) return null;
-      return {
-        pageKey,
-        projectJson: data.draft.projectJson || data.draft.project_json || {},
-        html: data.draft.html || '',
-        css: data.draft.css || '',
-        updatedAt: data.draft.updatedAt || data.draft.updated_at,
-      };
-    } catch (_e) {
-      return null;
-    }
-  }
-
-  async function seedDraft(pageKey) {
-    const page = PAGES[pageKey];
-    let html = '';
-    let css = '';
-    if (page.file) {
-      const res = await fetch(page.file, { cache: 'no-store' });
-      const text = await res.text();
-      const doc = new DOMParser().parseFromString(text, 'text/html');
-      const canvas = doc.querySelector('[data-d6-canvas]');
-      html = canvas ? canvas.innerHTML : '';
-    } else {
-      const res = await api('/api/admin/components/seed/receipt');
-      const data = await res.json().catch(() => ({}));
-      html = data.html || '';
-      css = data.css || '';
-    }
+    const res = await api('/api/admin/components/draft/' + pageKey);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok || !data.draft) return null;
     return {
       pageKey,
-      projectJson: {},
-      html,
-      css,
-      updatedAt: new Date(0).toISOString(),
+      projectJson: data.draft.projectJson || data.draft.project_json || {},
+      html: data.draft.html || '',
+      css: data.draft.css || '',
+      updatedAt: data.draft.updatedAt || data.draft.updated_at,
     };
   }
 
-  async function loadDraft(pageKey) {
-    const [local, server] = await Promise.all([idbGet(pageKey), fetchServerDraft(pageKey)]);
-    const best = pickNewer(local, server) || (await seedDraft(pageKey));
-    if (!best.html) {
-      const seeded = await seedDraft(pageKey);
-      if (seeded.html) {
-        best.html = seeded.html;
-        best.css = best.css || seeded.css;
-      }
+  async function seedFromFile(target) {
+    if (!target.file) {
+      const res = await api('/api/admin/components/seed/receipt');
+      const data = await res.json().catch(() => ({}));
+      return { html: data.html || '', css: data.css || '' };
+    }
+    const res = await fetch(target.file, { cache: 'no-store' });
+    const text = await res.text();
+    if (isDoc(target.key)) return { html: text, css: DOC_CSS };
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const canvas = doc.querySelector('[data-d6-canvas]');
+    return { html: canvas ? canvas.innerHTML : '', css: '' };
+  }
+
+  async function loadDraft(target) {
+    const [local, server] = await Promise.all([idbGet(target.key), fetchServerDraft(target.key)]);
+    let best = pickNewer(local, server);
+    if (!best || !best.html) {
+      const seeded = await seedFromFile(target);
+      best = {
+        pageKey: target.key,
+        projectJson: {},
+        html: seeded.html,
+        css: seeded.css,
+        updatedAt: new Date(0).toISOString(),
+      };
     }
     draft = best;
-    return draft;
   }
 
-  function captureStage() {
-    if (!draft || !els.stage.childNodes.length) return;
-    draft.html = readStageHtml();
+  function captureFromStudio() {
+    if (!studioEditor || !draft) return;
+    try {
+      draft.projectJson = studioEditor.getProjectData();
+      draft.html = studioEditor.getHtml();
+      draft.css = (studioEditor.getCss && studioEditor.getCss()) || draft.css || '';
+    } catch (_e) { /* tearing down */ }
   }
 
-  function scheduleSave() {
-    if (!draft) return;
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveNow, SAVE_DEBOUNCE_MS);
+  function record() {
+    return {
+      pageKey: draft.pageKey,
+      projectJson: draft.projectJson || {},
+      html: draft.html || '',
+      css: draft.css || '',
+      updatedAt: draft.updatedAt,
+    };
   }
 
   async function saveNow() {
     clearTimeout(saveTimer);
     if (!draft || saving) return;
     saving = true;
-    captureStage();
+    captureFromStudio();
     draft.updatedAt = new Date().toISOString();
-    const record = toDraftRecord();
-    await idbPut(record);
+    const body = record();
+    await idbPut(body);
     try {
-      await api('/api/admin/components/draft', {
-        method: 'PUT',
-        body: JSON.stringify(record),
-      });
-    } catch (_e) { /* IndexedDB covers a dropped connection */ }
+      await api('/api/admin/components/draft', { method: 'PUT', body: JSON.stringify(body) });
+    } catch (_e) { /* indexedDB holds it */ }
     saving = false;
   }
 
-  function flushBeacon() {
+  function scheduleSave() {
     clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, SAVE_DEBOUNCE_MS);
+  }
+
+  function flushBeacon() {
     if (!draft) return;
-    captureStage();
+    captureFromStudio();
     draft.updatedAt = new Date().toISOString();
-    const record = toDraftRecord();
-    idbPut(record);
+    const body = record();
+    idbPut(body);
     const token = jwt();
     if (!token) return;
     try {
-      const blob = new Blob([JSON.stringify(record)], { type: 'application/json' });
       navigator.sendBeacon(
         API_BASE + '/api/admin/components/draft?token=' + encodeURIComponent(token),
-        blob,
+        new Blob([JSON.stringify(body)], { type: 'application/json' }),
       );
     } catch (_e) { /* unload */ }
   }
 
   window.addEventListener('pagehide', flushBeacon);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushBeacon();
-  });
 
-  function hidePieceBar() {
-    selectedLink = null;
-    selectedImage = null;
-    els.pieceBar.classList.add('hidden');
-    els.pieceLinkLabel.classList.add('hidden');
-    els.pieceLink.classList.add('hidden');
-    els.pieceImage.classList.add('hidden');
-  }
-
-  function showLinkBar(anchor) {
-    selectedLink = anchor;
-    selectedImage = null;
-    els.pieceLink.value = anchor.getAttribute('href') || '';
-    els.pieceLinkLabel.classList.remove('hidden');
-    els.pieceLink.classList.remove('hidden');
-    els.pieceImage.classList.add('hidden');
-    els.pieceBar.classList.remove('hidden');
-  }
-
-  function showImageBar(img) {
-    selectedImage = img;
-    selectedLink = null;
-    els.pieceLink.classList.add('hidden');
-    els.pieceImage.classList.remove('hidden');
-    els.pieceBar.classList.remove('hidden');
-  }
-
-  function markEditable(root) {
-    root.querySelectorAll(TEXT_SELECTOR).forEach((el) => {
-      if (el.closest('svg')) return;
-      if (el.querySelector('input, canvas, svg, select, textarea')) return;
-      el.setAttribute('contenteditable', 'true');
-    });
-  }
-
-  function renderStage() {
-    hidePieceBar();
-    els.draftCss.textContent = draft.css || '';
-    els.stage.innerHTML = draft.html || '';
-    markEditable(els.stage);
-  }
-
-  function paintPageButtons() {
-    els.pageButtons.forEach((btn) => {
-      btn.setAttribute('aria-pressed', btn.getAttribute('data-page') === currentPageKey ? 'true' : 'false');
-    });
-  }
-
-  els.stage.addEventListener('input', scheduleSave);
-
-  els.stage.addEventListener('click', (event) => {
-    const anchor = event.target.closest('a');
-    const image = event.target.closest('img');
-    if (anchor && els.stage.contains(anchor)) {
-      event.preventDefault();
-      showLinkBar(anchor);
-      return;
-    }
-    if (image && els.stage.contains(image)) {
-      event.preventDefault();
-      showImageBar(image);
-      return;
-    }
-    const button = event.target.closest('button');
-    if (button && els.stage.contains(button)) event.preventDefault();
-    hidePieceBar();
-  });
-
-  els.stage.addEventListener('submit', (event) => event.preventDefault());
-
-  els.pieceLink.addEventListener('input', () => {
-    if (!selectedLink) return;
-    selectedLink.setAttribute('href', els.pieceLink.value.trim());
-    scheduleSave();
-  });
-
-  els.pieceImage.addEventListener('click', () => els.pieceFile.click());
-
-  els.pieceFile.addEventListener('change', async () => {
-    const file = els.pieceFile.files && els.pieceFile.files[0];
-    els.pieceFile.value = '';
-    if (!file || !selectedImage) return;
+  function injectCss(editor, cssText) {
+    if (!cssText) return;
     try {
-      const bytesBase64 = await fileToBase64(file);
-      const res = await api('/api/admin/components/upload', {
-        method: 'POST',
-        body: JSON.stringify({
-          filename: file.name,
-          mime: file.type || 'application/octet-stream',
-          bytesBase64,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        showStatus('error', data.error || 'Could not store that image.');
-        return;
+      const frame = editor.Canvas && editor.Canvas.getFrameEl && editor.Canvas.getFrameEl();
+      const doc = frame && frame.contentDocument;
+      if (!doc || !doc.head) return;
+      let style = doc.getElementById('d6-editor-css');
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = 'd6-editor-css';
+        doc.head.appendChild(style);
       }
-      selectedImage.setAttribute('src', data.url);
-      hideStatus();
-      scheduleSave();
-    } catch (_e) {
-      showStatus('error', 'Network error. Please try again.');
+      style.textContent = cssText;
+    } catch (_e) { /* frame not ready */ }
+  }
+
+  async function initStudio() {
+    const createStudioEditor =
+      (window.GrapesJsStudioSDK &&
+        (window.GrapesJsStudioSDK.default || window.GrapesJsStudioSDK.createStudioEditor)) ||
+      null;
+    if (!createStudioEditor) {
+      showStatus('The editor could not load. Refresh and try again.', 'error');
+      return;
     }
-  });
+    const cfgRes = await api('/api/admin/components/studio-config');
+    const cfg = await cfgRes.json().catch(() => ({}));
+    if (!cfgRes.ok || !cfg.ok || !cfg.licenseKey) {
+      showStatus(cfg.setup || 'The editor key is not set on the server yet.', 'error');
+      return;
+    }
+
+    const html = draft.html || '';
+    const css = draft.css || '';
+    const docMode = isDoc(current.key) || current.key === 'receipt';
+    const plugins = [];
+    if (docMode && window.StudioSdkPlugins_presetPrintable) {
+      const preset = window.StudioSdkPlugins_presetPrintable;
+      const presetPlugin = typeof preset.init === 'function'
+        ? preset.init({ selectedDevice: 'letter', fixedHeight: true })
+        : preset;
+      if (presetPlugin) plugins.push(presetPlugin);
+    }
+    plugins.push(function d6Plugin(editor) {
+      studioEditor = editor;
+      editor.on('update', scheduleSave);
+      editor.on('load', () => {
+        try { editor.setComponents(html); } catch (_e) { /* already parsed */ }
+        if (css && editor.setStyle) {
+          try { editor.setStyle(css); } catch (_e2) { /* inline styles remain */ }
+        }
+        injectCss(editor, docMode ? css : (siteCssText + '\n' + css));
+      });
+      editor.on('canvas:frame:load', () => {
+        injectCss(editor, docMode ? css : (siteCssText + '\n' + css));
+      });
+    });
+
+    els.studioRoot.innerHTML = '';
+    await createStudioEditor({
+      licenseKey: cfg.licenseKey,
+      root: '#studio-root',
+      theme: 'light',
+      project: {
+        type: docMode ? 'document' : 'web',
+        default: { pages: [{ name: current.title, component: html }] },
+      },
+      storage: {
+        type: 'self',
+        onLoad: async () => ({ project: { pages: [{ name: current.title, component: html }] } }),
+        onSave: async () => { captureFromStudio(); scheduleSave(); },
+      },
+      plugins,
+    });
+  }
+
+  function destroyStudio() {
+    captureFromStudio();
+    studioEditor = null;
+    els.studioRoot.innerHTML = '';
+  }
+
+  async function openTarget(target) {
+    current = target;
+    hideStatus();
+    questionsAsked = 0;
+    history.length = 0;
+    els.transcript.textContent = '';
+    els.workTitle.textContent = target.title;
+    els.backBtn.textContent = isDoc(target.key) ? '← Documents' : '← Hub pages';
+    els.chooser.classList.add('hidden');
+    els.workspace.classList.remove('hidden');
+    await loadDraft(target);
+    await initStudio();
+    await saveNow();
+  }
+
+  async function backToChooser() {
+    await saveNow();
+    destroyStudio();
+    current = null;
+    draft = null;
+    els.workspace.classList.add('hidden');
+    els.chooser.classList.remove('hidden');
+  }
 
   function pushTranscript(who, text) {
     const div = document.createElement('div');
@@ -378,7 +352,7 @@
 
   async function sendDescribeMessage() {
     const message = els.describeInput.value.trim();
-    if (!message) return;
+    if (!message || !current) return;
     els.describeInput.value = '';
     pushTranscript('admin', message);
     els.describeInput.disabled = true;
@@ -387,16 +361,11 @@
       await saveNow();
       const res = await api('/api/admin/components/describe', {
         method: 'POST',
-        body: JSON.stringify({
-          pageKey: currentPageKey,
-          message,
-          history,
-          questionsAsked,
-        }),
+        body: JSON.stringify({ pageKey: current.key, message, history, questionsAsked }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        showStatus('error', data.error || 'Could not send that. Try again.');
+        showStatus(data.error || 'Could not send that. Try again.', 'error');
         return;
       }
       if (data.kind === 'question') {
@@ -404,50 +373,23 @@
         history.push({ who: 'admin', text: message }, { who: 'page', text: data.question });
         pushTranscript('page', data.question);
       } else {
-        history.push({ who: 'admin', text: message }, { who: 'page', text: 'Changes applied.' });
+        history.push({ who: 'admin', text: message });
         if (data.draft) {
-          draft = Object.assign({}, draft, data.draft, { pageKey: currentPageKey });
-          renderStage();
-          await idbPut(toDraftRecord());
+          draft = Object.assign({}, draft, data.draft, { pageKey: current.key });
+          destroyStudio();
+          await initStudio();
         }
         pushTranscript('page', 'Changes applied.');
       }
     } catch (_e) {
-      showStatus('error', 'Network error. Please try again.');
+      showStatus('Network error. Please try again.', 'error');
     } finally {
       els.describeInput.disabled = false;
-      els.describeInput.focus();
-    }
-  }
-
-  async function runFinishPass() {
-    els.doneBtn.disabled = true;
-    hideStatus();
-    try {
-      await saveNow();
-      const res = await api('/api/admin/components/polish', {
-        method: 'POST',
-        body: JSON.stringify({ pageKey: currentPageKey }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        showStatus('error', data.error || 'Could not finish the page.');
-        return;
-      }
-      if (data.draft) {
-        draft = Object.assign({}, draft, data.draft, { pageKey: currentPageKey });
-        renderStage();
-        await idbPut(toDraftRecord());
-      }
-      showStatus('ok', 'Finished. Commit to save all changes when you are ready.');
-    } catch (_e) {
-      showStatus('error', 'Network error. Please try again.');
-    } finally {
-      els.doneBtn.disabled = false;
     }
   }
 
   async function commitChanges() {
+    if (!current) return;
     els.commitBtn.disabled = true;
     els.commitBtn.textContent = 'Saving…';
     hideStatus();
@@ -455,68 +397,75 @@
       await saveNow();
       const res = await api('/api/admin/components/commit', {
         method: 'POST',
-        body: JSON.stringify({ pageKey: currentPageKey, mode }),
+        body: JSON.stringify({ pageKey: current.key, mode }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        showStatus('error', data.error || 'Could not publish. Try again.');
+        showStatus(data.error || 'Could not publish. Try again.', 'error');
         return;
       }
-      showStatus('ok', 'Published. The live page updates on its next load.');
+      showStatus(isDoc(current.key) ? 'Published. The PDF updates on the next load.' : 'Published. The live page updates on its next load.', 'ok');
     } catch (_e) {
-      showStatus('error', 'Network error. Please try again.');
+      showStatus('Network error. Please try again.', 'error');
     } finally {
       els.commitBtn.disabled = false;
       els.commitBtn.textContent = 'Commit to save all changes';
     }
   }
 
-  async function openPage(pageKey) {
-    if (draft && draft.pageKey !== pageKey) await saveNow();
-    currentPageKey = pageKey;
-    try { sessionStorage.setItem(LAST_PAGE_KEY, pageKey); } catch (_e) { /* ignore */ }
-    paintPageButtons();
-    hideStatus();
-    questionsAsked = 0;
-    history.length = 0;
-    els.transcript.textContent = '';
-    await loadDraft(pageKey);
-    renderStage();
-    await saveNow();
+  function fillGrid(grid, items) {
+    items.forEach((item) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerHTML = item.title + (item.kind ? '<small>' + item.kind + '</small>' : '');
+      btn.addEventListener('click', () => openTarget(item));
+      grid.appendChild(btn);
+    });
   }
 
   async function start() {
     if (!jwt()) {
+      els.chooser.classList.add('hidden');
       els.signInRequired.classList.remove('hidden');
       return;
     }
-    document.title = (mode === 'describe' ? 'Describe your changes' : 'Update Components') +
-      ' — District 6 Compliance Hub';
-    els.editorBody.classList.remove('hidden');
     if (mode === 'describe') {
+      document.body.classList.add('d6-describe');
+      els.chooserTitle.textContent = 'Describe your changes';
       els.describeBand.classList.remove('hidden');
       els.doneBtn.classList.remove('hidden');
-      els.doneBtn.addEventListener('click', runFinishPass);
       els.describeInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
           sendDescribeMessage();
         }
       });
-    }
-
-    els.pageButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const next = btn.getAttribute('data-page');
-        if (next && next !== currentPageKey) openPage(next);
+      els.doneBtn.addEventListener('click', async () => {
+        await saveNow();
+        const res = await api('/api/admin/components/polish', {
+          method: 'POST',
+          body: JSON.stringify({ pageKey: current.key }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok && data.draft) {
+          draft = Object.assign({}, draft, data.draft, { pageKey: current.key });
+          destroyStudio();
+          await initStudio();
+          showStatus('Finished. Commit to save all changes when you are ready.', 'ok');
+        } else {
+          showStatus((data && data.error) || 'Could not finish the page.', 'error');
+        }
       });
-    });
-    els.commitBtn.addEventListener('click', commitChanges);
+    }
+    try {
+      const res = await fetch('assets/styles.css', { cache: 'no-store' });
+      if (res.ok) siteCssText = await res.text();
+    } catch (_e) { siteCssText = ''; }
 
-    let initial = 'home';
-    try { initial = sessionStorage.getItem(LAST_PAGE_KEY) || 'home'; } catch (_e) { /* ignore */ }
-    if (!PAGES[initial]) initial = 'home';
-    await openPage(initial);
+    fillGrid(els.docGrid, DOCS);
+    fillGrid(els.hubGrid, HUBS);
+    els.backBtn.addEventListener('click', backToChooser);
+    els.commitBtn.addEventListener('click', commitChanges);
   }
 
   start();

@@ -21,7 +21,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireAdmin } from '../lib/admin-auth.js';
 import {
-  isPageKey,
+  isEditorKey,
+  DOCUMENTS,
   getDraft,
   saveDraft,
   upsertPublishedPage,
@@ -40,6 +41,7 @@ import {
   applyProjectPatch,
 } from '../lib/claude-components.js';
 import { commitContentFiles, isGithubConfigured } from '../lib/github-content-commit.js';
+import { renderLetterPDF } from '../lib/receipt-renderer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RECEIPT_TEMPLATE_PATH = path.resolve(__dirname, '..', 'lib', 'templates', 'receipt.html');
@@ -81,7 +83,7 @@ router.get('/studio-config', (_req, res) => {
 
 function normalizeDraftBody(body) {
   const pageKey = body && body.pageKey;
-  if (!isPageKey(pageKey)) return { error: 'Unknown page.' };
+  if (!isEditorKey(pageKey)) return { error: 'Unknown page.' };
   const projectJson = body.projectJson && typeof body.projectJson === 'object' ? body.projectJson : {};
   const html = typeof body.html === 'string' ? body.html : '';
   const css = typeof body.css === 'string' ? body.css : '';
@@ -92,7 +94,7 @@ function normalizeDraftBody(body) {
 
 router.get('/draft/:pageKey', async (req, res) => {
   const { pageKey } = req.params;
-  if (!isPageKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
+  if (!isEditorKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
   try {
     const draft = await getDraft(req.adminEmail, pageKey);
     return res.json({ ok: true, draft: draft || null });
@@ -153,7 +155,7 @@ router.post('/describe', describeLimiter, async (req, res) => {
   const message = typeof body.message === 'string' ? body.message.trim() : '';
   const history = Array.isArray(body.history) ? body.history : [];
   const questionsAsked = Number.isInteger(body.questionsAsked) ? body.questionsAsked : 0;
-  if (!isPageKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
+  if (!isEditorKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
   if (!message) return res.status(400).json({ ok: false, error: 'Please describe the changes you would like to see.' });
 
   try {
@@ -242,7 +244,7 @@ async function runPolishForDraft(adminEmail, pageKey) {
 
 router.post('/polish', async (req, res) => {
   const { pageKey } = req.body || {};
-  if (!isPageKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
+  if (!isEditorKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
   try {
     const row = await runPolishForDraft(req.adminEmail, pageKey);
     return res.json({
@@ -267,11 +269,22 @@ function stripJsUrlsFromCss(css) {
   return typeof css === 'string' ? css.replace(/javascript\s*:/gi, '') : '';
 }
 
+function wrapDocumentHtml(html, css) {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+    @page { size: letter; margin: 0.7in; }
+    body { margin: 0; font-family: Calibri, Carlito, Arial, sans-serif; color: #1f2937; }
+    h2 { font-size: 22px; line-height: 1.25; margin: 0 0 10px; }
+    h3 { font-size: 16px; margin: 16px 0 6px; }
+    p { font-size: 12pt; line-height: 1.45; margin: 0 0 8px; }
+    ${css || ''}
+  </style></head><body>${html}</body></html>`;
+}
+
 router.post('/commit', async (req, res) => {
   const body = req.body || {};
   const { pageKey } = body;
   const mode = body.mode === 'describe' ? 'describe' : 'manual';
-  if (!isPageKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
+  if (!isEditorKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
 
   try {
     let draft = await getDraft(req.adminEmail, pageKey);
@@ -330,6 +343,15 @@ router.post('/commit', async (req, res) => {
       { path: `frontend/content/${pageKey}.css`, bytes: rewritten.css },
       ...rewritten.files,
     ];
+    const doc = DOCUMENTS[pageKey];
+    if (doc) {
+      files.push({
+        path: `frontend/content/docs/${doc.slug}.html`,
+        bytes: rewritten.html,
+      });
+      const pdf = await renderLetterPDF(wrapDocumentHtml(rewritten.html, rewritten.css));
+      files.push({ path: `frontend/docs/${doc.pdf}`, bytes: pdf });
+    }
     const github = isGithubConfigured()
       ? await commitContentFiles(files)
       : { committed: false, reason: 'GitHub token or repo not configured on the server.' };

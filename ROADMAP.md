@@ -3,7 +3,7 @@
 ## Next
 
 - The 25 direct-report numbers are already on file. A sign-in code does not wait on JOIN. STOP still blocks a number until they text START.
-- On the live site, open Update Components and confirm Home, Acknowledgement, Thank you, and Receipt show as the page, with the words editable in place.
+- On the live site, open Update Components, open Attendance, and confirm the policy text is on the page and can be dragged. Commit should replace `frontend/docs/attendance.pdf`.
 
 ## Later
 
