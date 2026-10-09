@@ -1,5 +1,9 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-09 — Page editor shows the page
+
+- Update Components and Describe your changes now render the Home, Acknowledgement, Thank you, and Receipt pages at full width. Words are edited on the page. Pictures and links use a bar along the bottom. The editor no longer loads the studio canvas, so it does not show source or ask for another sign-in when switching pages.
+
 ## 2026-10-09 — Tyson text sign-in number
 
 - Added `tyson.gauthier@retailodyssey.com` / `+15095727660` (Tyson Gauthier) to `login_phones`. Work domain, so no access-list row.

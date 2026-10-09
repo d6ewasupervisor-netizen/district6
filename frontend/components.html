@@ -4,131 +4,187 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Components — District 6 Compliance Hub</title>
+  <title>Update Components — District 6 Compliance Hub</title>
   <link rel="icon" type="image/png" href="favicon.png?v=2">
   <link rel="apple-touch-icon" href="favicon.png?v=2">
-
   <link rel="stylesheet" href="assets/styles.css" />
-  <link rel="stylesheet" href="vendor/studio/studio-sdk.css" />
   <style>
-    .d6-editor-bar {
+    body.d6-editor-page {
+      background: #d9e2ec;
+      min-height: 100vh;
+    }
+    .d6-top {
+      position: sticky;
+      top: 0;
+      z-index: 30;
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin: 0 0 16px;
+      gap: 16px;
+      padding: 12px 20px;
+      background: #fff;
+      border-bottom: 1px solid #c5d0dc;
     }
-    .d6-editor-bar label { margin: 0; }
-    .d6-editor-bar select {
-      min-width: 180px;
+    .d6-back {
+      color: var(--navy);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
     }
-    #studio-root {
-      height: calc(100vh - 220px);
-      min-height: 480px;
-      border: 1px solid #d8e3eb;
+    .d6-pages {
+      display: flex;
+      flex: 1;
+      gap: 8px;
+      min-width: 0;
+    }
+    .d6-pages button {
+      flex: 1;
+      min-width: 0;
+      min-height: 44px;
+      padding: 8px 10px;
+      border: 1px solid #c5d0dc;
       border-radius: 8px;
-      overflow: hidden;
+      background: #fff;
+      color: var(--navy);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
     }
-    .d6-transcript {
+    .d6-pages button[aria-pressed="true"] {
+      background: var(--navy);
+      border-color: var(--navy);
+      color: #fff;
+    }
+    .d6-top .primary {
+      min-height: 44px;
+      white-space: nowrap;
+      width: auto;
+      margin: 0;
+    }
+    #editor-status {
+      margin: 0;
+      border-radius: 0;
+    }
+    #sign-in-required {
+      max-width: 520px;
+      margin: 40px auto;
+    }
+    #describe-band {
+      background: #fff;
+      border-bottom: 1px solid #c5d0dc;
+      padding: 16px 20px 18px;
+    }
+    #prompt-line {
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    #transcript {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin: 12px 0;
+      margin-bottom: 10px;
     }
+    #transcript:empty { display: none; }
     .d6-msg {
       padding: 8px 12px;
       border-radius: 8px;
-      max-width: 720px;
+      max-width: 760px;
     }
     .d6-msg-admin {
-      background: #eef4f9;
-      border: 1px solid #d8e3eb;
+      background: #e8f2fb;
+      border: 1px solid #c5d0dc;
       align-self: flex-end;
     }
     .d6-msg-page {
-      background: #ffffff;
-      border: 1px solid #c9d6e2;
+      background: #fff;
+      border: 1px solid #c5d0dc;
       align-self: flex-start;
     }
     #describe-input {
       width: 100%;
-      min-height: 88px;
+      min-height: 72px;
       resize: vertical;
+      margin: 0;
     }
-    .d6-preview-wrap {
-      margin-top: 16px;
+    .d6-stage-scroll {
+      padding: 28px 24px 96px;
     }
-    #preview-frame {
-      width: 100%;
-      height: 520px;
-      border: 1px solid #d8e3eb;
-      border-radius: 8px;
-      background: #fff;
+    #page-stage [contenteditable="true"]:focus {
+      outline: 2px solid #5BA8E0;
+      outline-offset: 3px;
+      border-radius: 4px;
     }
-    .d6-commit-bar {
+    #page-stage img {
+      cursor: pointer;
+    }
+    #piece-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
       display: flex;
+      align-items: center;
       gap: 12px;
-      margin: 18px 0 26px;
+      padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+      background: #fff;
+      border-top: 1px solid #c5d0dc;
+    }
+    #piece-link-label {
+      margin: 0;
+      white-space: nowrap;
+    }
+    #piece-link {
+      flex: 1;
+      margin: 0;
+    }
+    #piece-image {
+      margin: 0;
+      width: auto;
     }
   </style>
 </head>
-<body class="admin-page">
-  <main class="container d6-components">
-    <div class="brand">
-      <img src="assets/logo.png" alt="Retail Odyssey" />
-    </div>
+<body class="d6-editor-page">
+  <div id="sign-in-required" class="card hidden">
+    <p class="help-text" style="margin-top: 0;">Sign in on the admin page first.</p>
+    <a href="admin.html">Back to sign in</a>
+  </div>
 
-    <h1 id="editor-title">Update Components</h1>
-
-    <div id="sign-in-required" class="card hidden">
-      <p class="help-text" style="margin-top: 0;">Sign in on the admin page first.</p>
-      <a href="admin.html">Back to sign in</a>
-    </div>
-
-    <div id="editor-body" class="hidden">
-      <div class="d6-editor-bar">
-        <label for="page-picker">Page</label>
-        <select id="page-picker">
-          <option value="home">Home</option>
-          <option value="acknowledgement">Acknowledgement</option>
-          <option value="thankyou">Thank you</option>
-          <option value="receipt">Receipt</option>
-        </select>
+  <div id="editor-body" class="hidden">
+    <header class="d6-top">
+      <a class="d6-back" href="admin.html">← Admin</a>
+      <div class="d6-pages" role="tablist">
+        <button type="button" data-page="home" aria-pressed="true">Home</button>
+        <button type="button" data-page="acknowledgement" aria-pressed="false">Acknowledgement</button>
+        <button type="button" data-page="thankyou" aria-pressed="false">Thank you</button>
+        <button type="button" data-page="receipt" aria-pressed="false">Receipt</button>
       </div>
+      <button id="done-btn" class="secondary hidden" type="button">I'm done</button>
+      <button id="commit-btn" class="primary" type="button">Commit to save all changes</button>
+    </header>
 
-      <div id="editor-status" class="notice hidden" role="status" aria-live="polite"></div>
+    <div id="editor-status" class="notice hidden" role="status" aria-live="polite"></div>
 
-      <section id="manual-mode">
-        <div id="studio-root"></div>
-      </section>
+    <section id="describe-band" class="hidden">
+      <p id="prompt-line">Please describe the changes you would like to see.</p>
+      <div id="transcript"></div>
+      <textarea id="describe-input" rows="3" aria-label="Describe the changes you would like to see"></textarea>
+    </section>
 
-      <section id="describe-mode" class="hidden">
-        <p id="prompt-line">Please describe the changes you would like to see.</p>
-        <div id="transcript" class="d6-transcript"></div>
-        <textarea id="describe-input" rows="4" aria-label="Describe the changes you would like to see"></textarea>
-        <div class="d6-preview-wrap">
-          <label for="preview-frame">Preview</label>
-          <iframe id="preview-frame" title="Preview"></iframe>
-        </div>
-      </section>
-
-      <div class="d6-commit-bar">
-        <button id="done-btn" class="secondary hidden" type="button">I&#39;m done</button>
-        <button id="commit-btn" class="primary" type="button">Commit to save all changes</button>
-      </div>
+    <div class="d6-stage-scroll">
+      <style id="draft-css"></style>
+      <div id="page-stage"></div>
     </div>
 
-    <p class="lead admin-back-link">
-      <a href="admin.html">← Back to admin</a>
-    </p>
-
-    <footer>
-      District 6 Compliance Hub · Admin
-    </footer>
-  </main>
+    <div id="piece-bar" class="hidden">
+      <label id="piece-link-label" for="piece-link" class="hidden">Link</label>
+      <input id="piece-link" type="url" class="hidden" autocomplete="off" spellcheck="false" />
+      <button id="piece-image" class="secondary hidden" type="button">Replace image</button>
+      <input id="piece-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" />
+    </div>
+  </div>
 
   <script src="js/config.js"></script>
-  <script src="vendor/studio/studio-sdk.umd.js"></script>
-  <script src="vendor/studio/preset-printable.umd.js"></script>
   <script src="js/components-editor.js"></script>
 </body>
 </html>

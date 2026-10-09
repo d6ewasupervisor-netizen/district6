@@ -1,10 +1,7 @@
 /*
- * Component editor page (components.html?mode=manual | ?mode=describe).
- *
- * Manual mode runs the Studio canvas (vendored UMD builds). Describe mode runs
- * the message loop against the backend and previews the shared draft. Both
- * modes persist one draft per page: IndexedDB (d6-component-drafts / pages)
- * mirrored to the server, newest updatedAt wins on load.
+ * Page editor. The page on screen is the page that gets saved.
+ * Click the words to change them. Click a picture to replace it. Click a
+ * link to change where it goes. Nothing here opens another sign-in.
  */
 (function () {
   'use strict';
@@ -17,46 +14,48 @@
   const LAST_PAGE_KEY = 'd6-components-page';
 
   const PAGES = {
-    home: { key: 'home', label: 'Home', file: 'index.html' },
-    acknowledgement: { key: 'acknowledgement', label: 'Acknowledgement', file: 'sign.html' },
-    thankyou: { key: 'thankyou', label: 'Thank you', file: 'thanks.html' },
-    receipt: { key: 'receipt', label: 'Receipt', file: null },
+    home: { key: 'home', file: 'index.html' },
+    acknowledgement: { key: 'acknowledgement', file: 'sign.html' },
+    thankyou: { key: 'thankyou', file: 'thanks.html' },
+    receipt: { key: 'receipt', file: null },
   };
 
+  const TEXT_SELECTOR = 'h1,h2,h3,h4,p,li,a,button,span,label,footer,td,th,figcaption';
+
   const els = {
-    title: document.getElementById('editor-title'),
     signInRequired: document.getElementById('sign-in-required'),
     editorBody: document.getElementById('editor-body'),
-    pagePicker: document.getElementById('page-picker'),
     status: document.getElementById('editor-status'),
-    manualMode: document.getElementById('manual-mode'),
-    describeMode: document.getElementById('describe-mode'),
-    studioRoot: document.getElementById('studio-root'),
+    describeBand: document.getElementById('describe-band'),
     transcript: document.getElementById('transcript'),
     describeInput: document.getElementById('describe-input'),
-    previewFrame: document.getElementById('preview-frame'),
+    stage: document.getElementById('page-stage'),
+    draftCss: document.getElementById('draft-css'),
     doneBtn: document.getElementById('done-btn'),
     commitBtn: document.getElementById('commit-btn'),
+    pieceBar: document.getElementById('piece-bar'),
+    pieceLinkLabel: document.getElementById('piece-link-label'),
+    pieceLink: document.getElementById('piece-link'),
+    pieceImage: document.getElementById('piece-image'),
+    pieceFile: document.getElementById('piece-file'),
+    pageButtons: Array.from(document.querySelectorAll('.d6-pages button')),
   };
 
   const mode =
     new URLSearchParams(location.search).get('mode') === 'describe' ? 'describe' : 'manual';
 
-  let jwt = '';
-  try { jwt = sessionStorage.getItem(JWT_KEY) || ''; } catch (_e) { jwt = ''; }
-
   let currentPageKey = 'home';
-  let draft = null; // { pageKey, projectJson, html, css, updatedAt }
-  let siteCssText = '';
-  let studioEditor = null;
+  let draft = null;
   let saveTimer = null;
   let saving = false;
-
-  // Describe-mode conversation state.
+  let selectedLink = null;
+  let selectedImage = null;
   let questionsAsked = 0;
   const history = [];
 
-  // ── Small helpers ─────────────────────────────────────────────────────────
+  function jwt() {
+    try { return sessionStorage.getItem(JWT_KEY) || ''; } catch (_e) { return ''; }
+  }
 
   function showStatus(kind, msg) {
     els.status.className = 'notice ' + (kind === 'error' ? 'notice-error' : 'notice-ok');
@@ -68,16 +67,20 @@
   }
 
   function authHeaders() {
-    return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + jwt };
+    return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + jwt() };
   }
 
   async function api(path, options) {
     const opts = options || {};
-    return fetch(API_BASE + path, {
+    const res = await fetch(API_BASE + path, {
       method: opts.method || 'GET',
       headers: authHeaders(),
       body: opts.body,
     });
+    if (res.status === 401) {
+      showStatus('error', 'Sign in on the admin page first.');
+    }
+    return res;
   }
 
   function fileToBase64(file) {
@@ -91,8 +94,6 @@
       reader.readAsDataURL(file);
     });
   }
-
-  // ── IndexedDB draft store ─────────────────────────────────────────────────
 
   function openDb() {
     return new Promise((resolve, reject) => {
@@ -131,9 +132,13 @@
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
-    } catch (_e) {
-      // Draft persistence is best-effort; the server copy still exists.
-    }
+    } catch (_e) { /* server copy still exists */ }
+  }
+
+  function readStageHtml() {
+    const clone = els.stage.cloneNode(true);
+    clone.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
+    return clone.innerHTML;
   }
 
   function toDraftRecord() {
@@ -152,8 +157,6 @@
     return new Date(a.updatedAt || 0) >= new Date(b.updatedAt || 0) ? a : b;
   }
 
-  // ── Draft load / save ─────────────────────────────────────────────────────
-
   async function fetchServerDraft(pageKey) {
     try {
       const res = await api('/api/admin/components/draft/' + pageKey);
@@ -171,7 +174,6 @@
     }
   }
 
-  /** First run for a page: seed from the current static page (or receipt template). */
   async function seedDraft(pageKey) {
     const page = PAGES[pageKey];
     let html = '';
@@ -200,19 +202,20 @@
   async function loadDraft(pageKey) {
     const [local, server] = await Promise.all([idbGet(pageKey), fetchServerDraft(pageKey)]);
     const best = pickNewer(local, server) || (await seedDraft(pageKey));
+    if (!best.html) {
+      const seeded = await seedDraft(pageKey);
+      if (seeded.html) {
+        best.html = seeded.html;
+        best.css = best.css || seeded.css;
+      }
+    }
     draft = best;
     return draft;
   }
 
-  function captureFromStudio() {
-    if (!studioEditor || !draft) return;
-    try {
-      draft.projectJson = studioEditor.getProjectData();
-      draft.html = studioEditor.getHtml();
-      draft.css = studioEditor.getCss();
-    } catch (_e) {
-      // Editor may be mid-teardown during a page switch.
-    }
+  function captureStage() {
+    if (!draft || !els.stage.childNodes.length) return;
+    draft.html = readStageHtml();
   }
 
   function scheduleSave() {
@@ -225,7 +228,7 @@
     clearTimeout(saveTimer);
     if (!draft || saving) return;
     saving = true;
-    if (mode === 'manual') captureFromStudio();
+    captureStage();
     draft.updatedAt = new Date().toISOString();
     const record = toDraftRecord();
     await idbPut(record);
@@ -234,29 +237,26 @@
         method: 'PUT',
         body: JSON.stringify(record),
       });
-    } catch (_e) {
-      // Offline or transient failure: the IndexedDB copy covers refresh/back.
-    }
+    } catch (_e) { /* IndexedDB covers a dropped connection */ }
     saving = false;
   }
 
-  /** Best-effort final flush on pagehide / tab hide (beacon can only POST). */
   function flushBeacon() {
     clearTimeout(saveTimer);
     if (!draft) return;
-    if (mode === 'manual') captureFromStudio();
+    captureStage();
     draft.updatedAt = new Date().toISOString();
     const record = toDraftRecord();
     idbPut(record);
+    const token = jwt();
+    if (!token) return;
     try {
       const blob = new Blob([JSON.stringify(record)], { type: 'application/json' });
       navigator.sendBeacon(
-        API_BASE + '/api/admin/components/draft?token=' + encodeURIComponent(jwt),
+        API_BASE + '/api/admin/components/draft?token=' + encodeURIComponent(token),
         blob,
       );
-    } catch (_e) {
-      // Nothing else to try during unload.
-    }
+    } catch (_e) { /* unload */ }
   }
 
   window.addEventListener('pagehide', flushBeacon);
@@ -264,205 +264,116 @@
     if (document.visibilityState === 'hidden') flushBeacon();
   });
 
-  // ── Blocks (the full set the admin can add) ───────────────────────────────
-
-  const POLICY_CARD_HTML =
-    '<div class="doc-card policy-card" data-doc="policyKey" data-doc-title="Policy Title">' +
-    '<h3 class="doc-card-title">Policy Title</h3>' +
-    '<p class="doc-meta">Policy · PDF</p>' +
-    '<div class="doc-card-row">' +
-    '<button class="secondary doc-open" type="button" data-pdf-src="docs/example.pdf" data-pdf-title="Policy Title">Open</button>' +
-    '<div class="doc-card-status" data-timer></div>' +
-    '</div>' +
-    '<label class="checkbox-row disabled">' +
-    '<input type="checkbox" class="doc-check" disabled />' +
-    '<span>I have read this document</span>' +
-    '</label>' +
-    '</div>';
-
-  const REFERENCE_CARD_HTML =
-    '<a class="ref-card reference-card" href="docs/example.pdf" data-ref-pdf data-ref-key="example" ' +
-    'data-pdf-src="docs/example.pdf" data-pdf-title="Reference Title" target="_blank" rel="noopener">' +
-    '<div class="ref-card-body">' +
-    '<h3 class="ref-card-title">Reference Title</h3>' +
-    '<p class="ref-card-desc">Short description of this reference document.</p>' +
-    '<span class="ref-card-meta">Reference · PDF</span>' +
-    '</div>' +
-    '<span class="ref-card-action" aria-hidden="true">Open</span>' +
-    '</a>';
-
-  const SIGNATURE_BLOCK_HTML =
-    '<section id="sign-section" class="card">' +
-    '<h2 id="sign-heading">Sign your acknowledgement</h2>' +
-    '<div id="submit-status" class="notice hidden" role="status" aria-live="polite"></div>' +
-    '<p><strong>Email:</strong> <span id="signer-email-2" class="signer-email">—</span></p>' +
-    '<label for="full-name">Full Name</label>' +
-    '<input id="full-name" type="text" autocomplete="name" placeholder="First Last" />' +
-    '<div style="margin-top: 16px;">' +
-    '<label>Signature</label>' +
-    '<div class="sig-wrap"><canvas id="signature-pad"></canvas></div>' +
-    '<div class="sig-actions">' +
-    '<span>Sign with your finger or mouse.</span>' +
-    '<button id="clear-sig" type="button">Clear</button>' +
-    '</div></div>' +
-    '<div class="legal-text">By signing below, I acknowledge that I have received, reviewed, and understand the policies listed above (Spring 2026 Edition, effective May 1, 2026). I agree to follow the rules and guidelines stated in these documents and understand that violations may result in disciplinary action up to and including termination. I confirm I know how to access these policies in the future and may request additional copies from my Supervisor at any time.</div>' +
-    '<label class="checkbox-row">' +
-    '<input id="agree-check" type="checkbox" />' +
-    '<span>I have read and agree to the acknowledgement statement above.</span>' +
-    '</label>' +
-    '<button id="submit-btn" class="primary" type="button" disabled>Submit Acknowledgement</button>' +
-    '</section>';
-
-  const D6_BLOCKS = [
-    { id: 'd6-heading', label: 'Heading', content: '<h2>Heading</h2>' },
-    { id: 'd6-text', label: 'Text', content: '<p>Text</p>' },
-    { id: 'd6-image', label: 'Image', content: { type: 'image', src: 'assets/logo.png' } },
-    { id: 'd6-link', label: 'Link', content: '<a href="#">Link</a>' },
-    { id: 'd6-button', label: 'Button', content: '<button type="button">Button</button>' },
-    {
-      id: 'd6-section',
-      label: 'Section',
-      content: '<section class="card"><h2>Section</h2><p>Section content.</p></section>',
-    },
-    { id: 'd6-policy-card', label: 'Policy PDF card', content: POLICY_CARD_HTML },
-    { id: 'd6-reference-card', label: 'Reference PDF card', content: REFERENCE_CARD_HTML },
-    { id: 'd6-signature-block', label: 'Signature block', content: SIGNATURE_BLOCK_HTML },
-  ];
-
-  function injectSiteCss(editor) {
-    if (!siteCssText) return;
-    try {
-      const frameEl = editor.Canvas && editor.Canvas.getFrameEl && editor.Canvas.getFrameEl();
-      const doc = frameEl && frameEl.contentDocument;
-      if (!doc || !doc.head) return;
-      if (doc.head.querySelector('#d6-site-css')) return;
-      const style = doc.createElement('style');
-      style.id = 'd6-site-css';
-      style.textContent = siteCssText;
-      doc.head.appendChild(style);
-    } catch (_e) {
-      // Canvas not ready yet; retried on the next frame load.
-    }
+  function hidePieceBar() {
+    selectedLink = null;
+    selectedImage = null;
+    els.pieceBar.classList.add('hidden');
+    els.pieceLinkLabel.classList.add('hidden');
+    els.pieceLink.classList.add('hidden');
+    els.pieceImage.classList.add('hidden');
   }
 
-  function d6PluginFactory() {
-    return function d6Plugin(editor) {
-      studioEditor = editor;
-      editor.on('update', scheduleSave);
-      editor.on('load', () => {
-        injectSiteCss(editor);
-        // Keep only the nine blocks this editor is meant to offer.
-        const allowed = new Set(D6_BLOCKS.map((b) => b.id));
-        editor.Blocks.getAll().forEach((block) => {
-          if (!allowed.has(block.getId())) editor.Blocks.remove(block.getId());
-        });
-      });
-      editor.on('canvas:frame:load', () => injectSiteCss(editor));
-    };
+  function showLinkBar(anchor) {
+    selectedLink = anchor;
+    selectedImage = null;
+    els.pieceLink.value = anchor.getAttribute('href') || '';
+    els.pieceLinkLabel.classList.remove('hidden');
+    els.pieceLink.classList.remove('hidden');
+    els.pieceImage.classList.add('hidden');
+    els.pieceBar.classList.remove('hidden');
   }
 
-  async function uploadAssets({ files }) {
-    const out = [];
-    for (const file of files || []) {
-      try {
-        const bytesBase64 = await fileToBase64(file);
-        const res = await api('/api/admin/components/upload', {
-          method: 'POST',
-          body: JSON.stringify({
-            filename: file.name,
-            mime: file.type || 'application/octet-stream',
-            bytesBase64,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.ok) {
-          out.push({ src: data.url, name: data.filename, mimeType: data.mime });
-        }
-      } catch (_e) {
-        // Skip this file; the rest still upload.
-      }
-    }
-    return out;
+  function showImageBar(img) {
+    selectedImage = img;
+    selectedLink = null;
+    els.pieceLink.classList.add('hidden');
+    els.pieceImage.classList.remove('hidden');
+    els.pieceBar.classList.remove('hidden');
   }
 
-  // ── Manual mode (Studio) ──────────────────────────────────────────────────
-
-  async function initStudio() {
-    const createStudioEditor =
-      (window.GrapesJsStudioSDK &&
-        (window.GrapesJsStudioSDK.default || window.GrapesJsStudioSDK.createStudioEditor)) ||
-      null;
-    if (!createStudioEditor) {
-      showStatus('error', 'The editor could not load. Refresh and try again.');
-      return;
-    }
-    const cfgRes = await api('/api/admin/components/studio-config');
-    const cfg = await cfgRes.json().catch(() => ({}));
-    if (!cfgRes.ok || !cfg.ok) {
-      showStatus('error', cfg.setup || 'The editor key is not set on the server yet.');
-      return;
-    }
-
-    const page = PAGES[currentPageKey];
-    const projectData =
-      draft.projectJson && Array.isArray(draft.projectJson.pages) && draft.projectJson.pages.length
-        ? draft.projectJson
-        : { pages: [{ name: page.label, component: draft.html }] };
-
-    const plugins = [d6PluginFactory()];
-    if (currentPageKey === 'receipt') {
-      const preset = window.StudioSdkPlugins_presetPrintable;
-      const presetPlugin =
-        preset && typeof preset.init === 'function'
-          ? preset.init({ selectedDevice: 'letter', fixedHeight: true })
-          : preset;
-      if (presetPlugin) plugins.unshift(presetPlugin);
-    }
-
-    els.studioRoot.innerHTML = '';
-    await createStudioEditor({
-      licenseKey: cfg.licenseKey,
-      root: '#studio-root',
-      project: {
-        type: currentPageKey === 'receipt' ? 'document' : 'web',
-        default: projectData,
-      },
-      storage: {
-        type: 'self',
-        project: projectData,
-        onLoad: async () => ({ project: projectData }),
-        onSave: async () => {
-          captureFromStudio();
-          scheduleSave();
-        },
-      },
-      blocks: { default: D6_BLOCKS },
-      assets: {
-        storageType: 'self',
-        onUpload: uploadAssets,
-        onLoad: async () => [],
-      },
-      plugins,
+  function markEditable(root) {
+    root.querySelectorAll(TEXT_SELECTOR).forEach((el) => {
+      if (el.closest('svg')) return;
+      if (el.querySelector('input, canvas, svg, select, textarea')) return;
+      el.setAttribute('contenteditable', 'true');
     });
   }
 
-  // ── Describe mode ─────────────────────────────────────────────────────────
-
-  function refreshPreview() {
-    if (!draft) return;
-    els.previewFrame.srcdoc =
-      '<!doctype html><html><head><meta charset="utf-8">' +
-      '<style>' + (siteCssText || '') + '</style>' +
-      '<style>' + (draft.css || '') + '</style>' +
-      '</head><body>' + (draft.html || '') + '</body></html>';
+  function renderStage() {
+    hidePieceBar();
+    els.draftCss.textContent = draft.css || '';
+    els.stage.innerHTML = draft.html || '';
+    markEditable(els.stage);
   }
+
+  function paintPageButtons() {
+    els.pageButtons.forEach((btn) => {
+      btn.setAttribute('aria-pressed', btn.getAttribute('data-page') === currentPageKey ? 'true' : 'false');
+    });
+  }
+
+  els.stage.addEventListener('input', scheduleSave);
+
+  els.stage.addEventListener('click', (event) => {
+    const anchor = event.target.closest('a');
+    const image = event.target.closest('img');
+    if (anchor && els.stage.contains(anchor)) {
+      event.preventDefault();
+      showLinkBar(anchor);
+      return;
+    }
+    if (image && els.stage.contains(image)) {
+      event.preventDefault();
+      showImageBar(image);
+      return;
+    }
+    const button = event.target.closest('button');
+    if (button && els.stage.contains(button)) event.preventDefault();
+    hidePieceBar();
+  });
+
+  els.stage.addEventListener('submit', (event) => event.preventDefault());
+
+  els.pieceLink.addEventListener('input', () => {
+    if (!selectedLink) return;
+    selectedLink.setAttribute('href', els.pieceLink.value.trim());
+    scheduleSave();
+  });
+
+  els.pieceImage.addEventListener('click', () => els.pieceFile.click());
+
+  els.pieceFile.addEventListener('change', async () => {
+    const file = els.pieceFile.files && els.pieceFile.files[0];
+    els.pieceFile.value = '';
+    if (!file || !selectedImage) return;
+    try {
+      const bytesBase64 = await fileToBase64(file);
+      const res = await api('/api/admin/components/upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: file.name,
+          mime: file.type || 'application/octet-stream',
+          bytesBase64,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showStatus('error', data.error || 'Could not store that image.');
+        return;
+      }
+      selectedImage.setAttribute('src', data.url);
+      hideStatus();
+      scheduleSave();
+    } catch (_e) {
+      showStatus('error', 'Network error. Please try again.');
+    }
+  });
 
   function pushTranscript(who, text) {
     const div = document.createElement('div');
     div.className = 'd6-msg ' + (who === 'admin' ? 'd6-msg-admin' : 'd6-msg-page');
     div.textContent = text;
     els.transcript.appendChild(div);
-    els.transcript.scrollTop = els.transcript.scrollHeight;
   }
 
   async function sendDescribeMessage() {
@@ -473,6 +384,7 @@
     els.describeInput.disabled = true;
     hideStatus();
     try {
+      await saveNow();
       const res = await api('/api/admin/components/describe', {
         method: 'POST',
         body: JSON.stringify({
@@ -495,8 +407,8 @@
         history.push({ who: 'admin', text: message }, { who: 'page', text: 'Changes applied.' });
         if (data.draft) {
           draft = Object.assign({}, draft, data.draft, { pageKey: currentPageKey });
+          renderStage();
           await idbPut(toDraftRecord());
-          refreshPreview();
         }
         pushTranscript('page', 'Changes applied.');
       }
@@ -508,7 +420,6 @@
     }
   }
 
-  /** "I'm done" — finish pass only; publishing stays on the other button. */
   async function runFinishPass() {
     els.doneBtn.disabled = true;
     hideStatus();
@@ -525,8 +436,8 @@
       }
       if (data.draft) {
         draft = Object.assign({}, draft, data.draft, { pageKey: currentPageKey });
+        renderStage();
         await idbPut(toDraftRecord());
-        refreshPreview();
       }
       showStatus('ok', 'Finished. Commit to save all changes when you are ready.');
     } catch (_e) {
@@ -536,16 +447,12 @@
     }
   }
 
-  // ── Publish ───────────────────────────────────────────────────────────────
-
   async function commitChanges() {
     els.commitBtn.disabled = true;
     els.commitBtn.textContent = 'Saving…';
     hideStatus();
     try {
       await saveNow();
-      // In describe mode the server runs the finish pass first when this draft
-      // has not had one yet, so committing early never skips it.
       const res = await api('/api/admin/components/commit', {
         method: 'POST',
         body: JSON.stringify({ pageKey: currentPageKey, mode }),
@@ -564,59 +471,47 @@
     }
   }
 
-  // ── Boot ──────────────────────────────────────────────────────────────────
-
   async function openPage(pageKey) {
+    if (draft && draft.pageKey !== pageKey) await saveNow();
     currentPageKey = pageKey;
     try { sessionStorage.setItem(LAST_PAGE_KEY, pageKey); } catch (_e) { /* ignore */ }
-    els.pagePicker.value = pageKey;
+    paintPageButtons();
     hideStatus();
+    questionsAsked = 0;
+    history.length = 0;
+    els.transcript.textContent = '';
     await loadDraft(pageKey);
-    if (mode === 'manual') {
-      await initStudio();
-    } else {
-      refreshPreview();
-    }
+    renderStage();
+    await saveNow();
   }
 
   async function start() {
-    if (!jwt) {
+    if (!jwt()) {
       els.signInRequired.classList.remove('hidden');
       return;
     }
-    els.title.textContent = mode === 'describe' ? 'Describe your changes' : 'Update Components';
-    document.title =
-      (mode === 'describe' ? 'Describe your changes' : 'Update Components') +
+    document.title = (mode === 'describe' ? 'Describe your changes' : 'Update Components') +
       ' — District 6 Compliance Hub';
     els.editorBody.classList.remove('hidden');
-    if (mode === 'manual') {
-      els.describeMode.classList.add('hidden');
-    } else {
-      els.manualMode.classList.add('hidden');
-      els.describeMode.classList.remove('hidden');
-      els.doneBtn.classList.remove('hidden');
-    }
-
-    try {
-      const res = await fetch('assets/styles.css', { cache: 'no-store' });
-      if (res.ok) siteCssText = await res.text();
-    } catch (_e) {
-      siteCssText = '';
-    }
-
-    els.pagePicker.addEventListener('change', () => {
-      saveNow().finally(() => openPage(els.pagePicker.value));
-    });
-    els.commitBtn.addEventListener('click', commitChanges);
     if (mode === 'describe') {
+      els.describeBand.classList.remove('hidden');
+      els.doneBtn.classList.remove('hidden');
       els.doneBtn.addEventListener('click', runFinishPass);
-      els.describeInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
+      els.describeInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
           sendDescribeMessage();
         }
       });
     }
+
+    els.pageButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const next = btn.getAttribute('data-page');
+        if (next && next !== currentPageKey) openPage(next);
+      });
+    });
+    els.commitBtn.addEventListener('click', commitChanges);
 
     let initial = 'home';
     try { initial = sessionStorage.getItem(LAST_PAGE_KEY) || 'home'; } catch (_e) { /* ignore */ }

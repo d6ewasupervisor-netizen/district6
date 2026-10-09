@@ -3,7 +3,7 @@
 ## Next
 
 - The 25 direct-report numbers are already on file. A sign-in code does not wait on JOIN. STOP still blocks a number until they text START.
-- Open `components.html?mode=manual` on the live site and confirm the Studio canvas loads. The four pages are already published from the current site HTML.
+- On the live site, open Update Components and confirm Home, Acknowledgement, Thank you, and Receipt show as the page, with the words editable in place.
 
 ## Later
 
