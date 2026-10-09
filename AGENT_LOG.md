@@ -1,5 +1,12 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-09 — Railway setup for the editor and SMS PIN
+
+- District 6 API is the `district6` service in Railway project `serene-celebration` (`https://district6-production.up.railway.app`). GrapesJS keys were already on that service.
+- Added app slug `district6` to sms-outbox `APP_KEYS`, set `SMS_OUTBOX_KEY` and `SMS_OUTBOX_URL` on the District 6 service, and mirrored `APP_KEYS` into the gitignored sms-outbox deploy-secrets file. Both services redeployed successfully. The key is not in git.
+- Copied `ANTHROPIC_API_KEY` from the EOD service. Set `GITHUB_REPO`. Watch pattern is `backend/**`.
+- Still missing on the District 6 service: `GITHUB_TOKEN` (contents write). Phone numbers are still entered from the signed-in **Text sign-in numbers** card.
+
 ## 2026-10-08 — District 6 SMS PIN login (TACTAG sms-outbox gateway)
 
 - Added text-code sign-in through the shared TACTAG gateway (`POST /otp/send` / `POST /otp/verify`, `x-api-key`). No Twilio credentials; no `/sms/send` wrapper exists in the client so PINs can never ride a generic text (and OTP gets no owner copy).

@@ -15,7 +15,6 @@
 
 ## Open
 
-- Railway dashboard steps (secrets + watch path) are manual — see ROADMAP.md.
-- SMS PIN secrets are manual (see ROADMAP.md): `district6:<key>` in the gateway's `APP_KEYS`, `SMS_OUTBOX_KEY` on this service. Until set, text sign-in returns "Text sign-in is not set up. Use email."
+- `GITHUB_TOKEN` is not set on the District 6 Railway service, so a content commit from the editor cannot push to GitHub yet. `SMS_OUTBOX_KEY`, `ANTHROPIC_API_KEY`, GrapesJS keys, `GITHUB_REPO`, and watch pattern `backend/**` are set. Phone rows are still entered in the admin card.
 - One GitHub commit uses the Git Data API rather than the single-file Contents API (multi-file commits are only possible that way).
 - Sanitizer is regex/tag-walk based (no HTML parser dependency); attribute values containing `>` are a known edge limitation.
