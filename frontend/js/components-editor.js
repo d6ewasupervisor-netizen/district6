@@ -49,7 +49,8 @@
     describeBand: document.getElementById('describe-band'),
     transcript: document.getElementById('transcript'),
     describeInput: document.getElementById('describe-input'),
-    studioRoot: document.getElementById('studio-root'),
+    pageHost: document.getElementById('page-host'),
+    pieceFile: document.getElementById('piece-file'),
     doneBtn: document.getElementById('done-btn'),
     previewBtn: document.getElementById('preview-btn'),
     commitBtn: document.getElementById('commit-btn'),
@@ -58,8 +59,10 @@
 
   let current = null;
   let draft = null;
-  let studioEditor = null;
+  let pageRoot = null;
   let previewOn = false;
+  let siteCssText = '';
+  let selectedImage = null;
   let saveTimer = null;
   let saving = false;
   let questionsAsked = 0;
@@ -183,14 +186,16 @@
   }
 
   function captureFromStudio() {
-    if (!studioEditor || !draft || previewOn) return;
-    try {
-      const html = studioEditor.getHtml();
-      if (!html || !String(html).trim()) return;
-      draft.projectJson = studioEditor.getProjectData ? studioEditor.getProjectData() : draft.projectJson;
-      draft.html = html;
-      draft.css = (studioEditor.getCss && studioEditor.getCss()) || '';
-    } catch (_e) { /* tearing down */ }
+    if (!pageRoot || !draft) return;
+    const clone = pageRoot.cloneNode(true);
+    clone.querySelectorAll('.d6-block').forEach((block) => {
+      const inner = block.querySelector(':scope > :not(.d6-handle)');
+      if (inner) block.replaceWith(inner);
+    });
+    clone.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
+    const html = clone.innerHTML.trim();
+    if (!html) return;
+    draft.html = html;
   }
 
   function record() {
@@ -247,63 +252,141 @@
     els.previewBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 
-  async function initStudio() {
-    const preset = window['grapesjs-preset-webpage'];
-    if (!window.grapesjs || !preset) {
-      showStatus('The editor could not load. Refresh and try again.', 'error');
-      return;
-    }
-    const html = draft.html || '<section class="card"><h2>Heading</h2><p>Text</p></section>';
-    const css = draft.css || (isDoc(current.key) ? DOC_CSS : '');
-    const docMode = isDoc(current.key);
-    setPreview(false);
-    els.studioRoot.innerHTML = '';
-    studioEditor = window.grapesjs.init({
-      container: '#studio-root',
-      height: '100%',
-      width: 'auto',
-      fromElement: false,
-      components: html,
-      style: css,
-      storageManager: false,
-      noticeOnUnload: false,
-      plugins: [preset],
-      canvas: {
-        styles: docMode ? [] : ['assets/styles.css'],
-      },
-    });
-    studioEditor.on('update', scheduleSave);
-    studioEditor.on('load', () => {
-      try { studioEditor.setComponents(html); } catch (_e) { /* already on the canvas */ }
-      if (css) {
-        try { studioEditor.setStyle(css); } catch (_e2) { /* keep existing */ }
+  const NEW_BLOCKS = {
+    h2: '<h2>Heading</h2>',
+    h3: '<h3>Subheading</h3>',
+    p: '<p>Text</p>',
+    img: '<img src="assets/logo.png" alt="">',
+  };
+
+  const EDITOR_CSS = [
+    '.d6-sheet { min-height: 100%; }',
+    '.d6-block { position: relative; }',
+    '.d6-block .d6-handle {',
+    '  position: absolute; left: -28px; top: 4px; width: 22px; text-align: center;',
+    '  cursor: grab; color: #5b6b7c; font-size: 14px; user-select: none;',
+    '}',
+    '.d6-block:hover { outline: 1px dashed #5BA8E0; }',
+    '[contenteditable="true"]:focus { outline: 2px solid #1A3A6E; outline-offset: 2px; }',
+    'img { max-width: 100%; cursor: pointer; }',
+    '.d6-preview .d6-handle { display: none; }',
+    '.d6-preview .d6-block:hover { outline: none; }',
+  ].join('\n');
+
+  function wrapElement(el) {
+    if (!el || el.classList.contains('d6-block') || el.classList.contains('d6-handle')) return;
+    if (!el.matches('h1,h2,h3,h4,p,img,ul,ol,table,a,button,blockquote')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'd6-block';
+    wrap.draggable = true;
+    const handle = document.createElement('span');
+    handle.className = 'd6-handle';
+    handle.textContent = '⋮⋮';
+    handle.setAttribute('contenteditable', 'false');
+    el.before(wrap);
+    wrap.appendChild(handle);
+    wrap.appendChild(el);
+    if (!el.matches('img,table,ul,ol')) el.setAttribute('contenteditable', 'true');
+  }
+
+  function wrapBlocks(container) {
+    Array.from(container.children).forEach((child) => {
+      if (child.matches('section,div,main,article,header,footer') && !child.matches('img')) {
+        wrapBlocks(child);
+        return;
       }
+      wrapElement(child);
+    });
+  }
+
+  function nearestBlock(node) {
+    while (node && node !== pageRoot) {
+      if (node.classList && node.classList.contains('d6-block')) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function insertHtml(html, before) {
+    const holder = document.createElement('div');
+    holder.innerHTML = html;
+    const el = holder.firstElementChild;
+    if (!el || !pageRoot) return;
+    const target = before || pageRoot;
+    if (before) before.before(el);
+    else pageRoot.appendChild(el);
+    wrapElement(el);
+    scheduleSave();
+  }
+
+  function renderPage() {
+    setPreview(false);
+    const html = draft.html || '<section class="d6-doc-page"><h2>Heading</h2><p>Text</p></section>';
+    const docMode = isDoc(current.key);
+    const look = docMode ? (DOC_CSS + '\n' + (draft.css || '')) : (siteCssText + '\n' + (draft.css || ''));
+    if (!els.pageHost.shadowRoot) els.pageHost.attachShadow({ mode: 'open' });
+    const shadow = els.pageHost.shadowRoot;
+    shadow.innerHTML = '<style>' + EDITOR_CSS + '\n' + look + '</style><div class="d6-sheet" id="sheet"></div>';
+    pageRoot = shadow.getElementById('sheet');
+    pageRoot.innerHTML = html;
+    wrapBlocks(pageRoot);
+    pageRoot.addEventListener('input', scheduleSave);
+    pageRoot.addEventListener('dragstart', (event) => {
+      const block = nearestBlock(event.target);
+      if (!block) return;
+      event.dataTransfer.setData('text/d6-move', '1');
+      event.dataTransfer.setData('text/plain', 'move');
+      block.dataset.moving = '1';
+    });
+    pageRoot.addEventListener('dragover', (event) => {
+      event.preventDefault();
+    });
+    pageRoot.addEventListener('drop', (event) => {
+      event.preventDefault();
+      const fresh = event.dataTransfer.getData('text/d6-new');
+      const moving = pageRoot.querySelector('[data-moving="1"]');
+      const hit = nearestBlock(event.target) || pageRoot.lastElementChild;
+      if (fresh) {
+        insertHtml(fresh, hit);
+        return;
+      }
+      if (moving && hit && hit !== moving) {
+        hit.before(moving);
+        delete moving.dataset.moving;
+        scheduleSave();
+      }
+    });
+    pageRoot.addEventListener('dragend', () => {
+      pageRoot.querySelectorAll('[data-moving]').forEach((el) => delete el.dataset.moving);
+    });
+    pageRoot.addEventListener('click', (event) => {
+      const image = event.target.closest && event.target.closest('img');
+      if (image && pageRoot.contains(image)) {
+        selectedImage = image;
+        els.pieceFile.click();
+      }
+      const anchor = event.target.closest && event.target.closest('a');
+      if (anchor) event.preventDefault();
     });
   }
 
   function togglePreview() {
-    if (!studioEditor) return;
-    if (previewOn) {
-      studioEditor.stopCommand('preview');
-      setPreview(false);
-      return;
-    }
-    captureFromStudio();
-    studioEditor.runCommand('preview');
-    setPreview(true);
+    previewOn = !previewOn;
+    setPreview(previewOn);
+    document.body.classList.toggle('d6-previewing', previewOn);
+    if (!pageRoot) return;
+    pageRoot.classList.toggle('d6-preview', previewOn);
+    pageRoot.querySelectorAll('[contenteditable]').forEach((el) => {
+      el.setAttribute('contenteditable', previewOn ? 'false' : 'true');
+    });
   }
 
   function destroyStudio() {
-    if (studioEditor && previewOn) {
-      try { studioEditor.stopCommand('preview'); } catch (_e) { /* already closed */ }
-    }
     captureFromStudio();
-    if (studioEditor && studioEditor.destroy) {
-      try { studioEditor.destroy(); } catch (_e2) { /* already gone */ }
-    }
-    studioEditor = null;
+    pageRoot = null;
+    if (els.pageHost.shadowRoot) els.pageHost.shadowRoot.innerHTML = '';
     setPreview(false);
-    els.studioRoot.innerHTML = '';
+    document.body.classList.remove('d6-previewing');
   }
 
   async function openTarget(target) {
@@ -317,7 +400,7 @@
     els.chooser.classList.add('hidden');
     els.workspace.classList.remove('hidden');
     await loadDraft(target);
-    await initStudio();
+    renderPage();
   }
 
   async function backToChooser() {
@@ -363,7 +446,7 @@
         if (data.draft) {
           draft = Object.assign({}, draft, data.draft, { pageKey: current.key });
           destroyStudio();
-          await initStudio();
+          renderPage();
         }
         pushTranscript('page', 'Changes applied.');
       }
@@ -436,13 +519,52 @@
         if (res.ok && data.ok && data.draft) {
           draft = Object.assign({}, draft, data.draft, { pageKey: current.key });
           destroyStudio();
-          await initStudio();
+          renderPage();
           showStatus('Finished. Commit to save all changes when you are ready.', 'ok');
         } else {
           showStatus((data && data.error) || 'Could not finish the page.', 'error');
         }
       });
     }
+    try {
+      const cssRes = await fetch('assets/styles.css', { cache: 'no-store' });
+      if (cssRes.ok) siteCssText = await cssRes.text();
+    } catch (_e) { siteCssText = ''; }
+
+    document.querySelectorAll('#palette button').forEach((btn) => {
+      btn.addEventListener('dragstart', (event) => {
+        const kind = btn.getAttribute('data-block');
+        event.dataTransfer.setData('text/d6-new', NEW_BLOCKS[kind] || NEW_BLOCKS.p);
+        event.dataTransfer.setData('text/plain', kind || 'p');
+      });
+    });
+    els.pieceFile.addEventListener('change', async () => {
+      const file = els.pieceFile.files && els.pieceFile.files[0];
+      els.pieceFile.value = '';
+      if (!file || !selectedImage) return;
+      try {
+        const bytesBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const res = await api('/api/admin/components/upload', {
+          method: 'POST',
+          body: JSON.stringify({ filename: file.name, mime: file.type || 'image/png', bytesBase64 }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          showStatus(data.error || 'Could not store that image.', 'error');
+          return;
+        }
+        selectedImage.setAttribute('src', data.url);
+        scheduleSave();
+      } catch (_e) {
+        showStatus('Network error. Please try again.', 'error');
+      }
+    });
+
     fillGrid(els.docGrid, DOCS);
     fillGrid(els.hubGrid, HUBS);
     els.backBtn.addEventListener('click', backToChooser);

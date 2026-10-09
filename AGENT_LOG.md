@@ -1,5 +1,9 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-09 — The page is the editor
+
+- Removed the GrapesJS canvas layer. The document or hub page is drawn directly. Blocks on the left drag onto that page, the ⋮⋮ handle reorders what is already there, and the words are typed in place. Preview hides the handles.
+
 ## 2026-10-09 — Visual drag-and-drop canvas
 
 - The editor canvas is now the page itself: drag blocks, click text to change it, and Preview shows that page without the handles. The hub stylesheet no longer sits on the editor chrome, which was collapsing the preview controls.
