@@ -1,5 +1,9 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-09 — Published the four live pages
+
+- Saved Home, Acknowledgement, Thank you, and the receipt through the same publish path as **Commit to save all changes**. No editor drafts existed, so the save used the pages already on the site. One commit: `c9748de`. `GET /api/content/:pageKey` returns 200 for all four.
+
 ## 2026-10-09 — Direct reports loaded into text sign-in
 
 - Loaded 25 people from April's direct-report sheet into `login_phones` (name, email, E.164 phone). 17 personal addresses were also upserted on `allowed_emails` so they can request a link and a text code. Work-domain addresses were not added to that list.
