@@ -1,5 +1,9 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-09 — Tyson text sign-in number
+
+- Added `tyson.gauthier@retailodyssey.com` / `+15095727660` (Tyson Gauthier) to `login_phones`. Work domain, so no access-list row.
+
 ## 2026-10-09 — Published the four live pages
 
 - Saved Home, Acknowledgement, Thank you, and the receipt through the same publish path as **Commit to save all changes**. No editor drafts existed, so the save used the pages already on the site. One commit: `c9748de`. `GET /api/content/:pageKey` returns 200 for all four.
