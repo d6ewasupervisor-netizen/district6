@@ -15,6 +15,6 @@
 
 ## Open
 
-- `GITHUB_TOKEN` is not set on the District 6 Railway service, so a content commit from the editor cannot push to GitHub yet. `SMS_OUTBOX_KEY`, `ANTHROPIC_API_KEY`, GrapesJS keys, `GITHUB_REPO`, and watch pattern `backend/**` are set. Direct-report names and phones are in `login_phones`; personal emails are also on `allowed_emails`.
+- `GITHUB_TOKEN` and `GITHUB_REPO` are set on the District 6 service, along with `SMS_OUTBOX_KEY`, `ANTHROPIC_API_KEY`, the GrapesJS keys, and watch pattern `backend/**`. Direct-report names and phones are in `login_phones`; personal emails are also on `allowed_emails`. No page has been published yet, so `/api/content/:pageKey` is still empty until **Commit to save all changes**.
 - One GitHub commit uses the Git Data API rather than the single-file Contents API (multi-file commits are only possible that way).
 - Sanitizer is regex/tag-walk based (no HTML parser dependency); attribute values containing `>` are a known edge limitation.
