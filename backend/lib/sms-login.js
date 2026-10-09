@@ -50,21 +50,23 @@ export function maskPhone(e164) {
 
 export async function getLoginPhone(email) {
   const { rows } = await query(
-    `SELECT email, phone_e164, updated_at FROM login_phones WHERE email = $1`,
+    `SELECT email, phone_e164, display_name, updated_at FROM login_phones WHERE email = $1`,
     [email],
   );
   return rows[0] || null;
 }
 
-export async function saveLoginPhone(email, phoneE164) {
+export async function saveLoginPhone(email, phoneE164, displayName) {
+  const name = displayName ? String(displayName).trim() : null;
   const { rows } = await query(
-    `INSERT INTO login_phones (email, phone_e164, updated_at)
-     VALUES ($1, $2, NOW())
+    `INSERT INTO login_phones (email, phone_e164, display_name, updated_at)
+     VALUES ($1, $2, $3, NOW())
      ON CONFLICT (email) DO UPDATE SET
        phone_e164 = EXCLUDED.phone_e164,
+       display_name = COALESCE(EXCLUDED.display_name, login_phones.display_name),
        updated_at = NOW()
-     RETURNING email, phone_e164, updated_at`,
-    [email, phoneE164],
+     RETURNING email, phone_e164, display_name, updated_at`,
+    [email, phoneE164, name || null],
   );
   return rows[0];
 }
@@ -76,7 +78,7 @@ export async function removeLoginPhone(email) {
 
 export async function listLoginPhones() {
   const { rows } = await query(
-    `SELECT email, phone_e164, updated_at FROM login_phones ORDER BY email ASC`,
+    `SELECT email, phone_e164, display_name, updated_at FROM login_phones ORDER BY email ASC`,
   );
   return rows;
 }

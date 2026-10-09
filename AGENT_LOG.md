@@ -1,5 +1,10 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-09 — Direct reports loaded into text sign-in
+
+- Loaded 25 people from April's direct-report sheet into `login_phones` (name, email, E.164 phone). 17 personal addresses were also upserted on `allowed_emails` so they can request a link and a text code. Work-domain addresses were not added to that list.
+- `login_phones.display_name` is migration `011`. The admin phone list shows the name.
+
 ## 2026-10-09 — Railway setup for the editor and SMS PIN
 
 - District 6 API is the `district6` service in Railway project `serene-celebration` (`https://district6-production.up.railway.app`). GrapesJS keys were already on that service.

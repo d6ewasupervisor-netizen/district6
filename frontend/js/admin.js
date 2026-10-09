@@ -730,7 +730,11 @@
       div.style.padding = '6px 0';
       div.style.borderTop = '1px solid #e7e5e4';
       const label = document.createElement('span');
-      label.textContent = row.email + ' · ' + row.phone_e164;
+      const parts = [];
+      if (row.display_name) parts.push(row.display_name);
+      parts.push(row.email);
+      parts.push(row.phone_e164);
+      label.textContent = parts.join(' · ');
       label.style.fontSize = '14px';
       const rm = document.createElement('button');
       rm.type = 'button';
