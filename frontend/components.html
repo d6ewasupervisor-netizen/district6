@@ -9,18 +9,41 @@
   <link rel="apple-touch-icon" href="favicon.png?v=2">
   <style>
     :root {
-      --navy: #1A3A6E;
-      --text: #1F2937;
-      --text-muted: #6B7280;
+      --navy: #003a70;
+      --navy-hover: #00284f;
+      --sky: #62b5e5;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --border: #c5d0dc;
+      --desk: #dde5ee;
     }
-    html, body.d6-editor-page { height: 100%; margin: 0; background: #e7eef5; color: var(--text); font-family: "Segoe UI", Arial, sans-serif; }
+    * { box-sizing: border-box; }
+    html, body.d6-editor-page {
+      height: 100%;
+      margin: 0;
+      background: var(--desk);
+      color: var(--text);
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    }
     a { color: var(--navy); }
+    .hidden { display: none !important; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid var(--border); }
+
+    /* ── Chooser Screen ─────────────────────────────────────────────────── */
     .d6-chooser { max-width: 980px; margin: 0 auto; padding: 28px 20px 60px; }
-    .d6-chooser h1 { margin: 8px 0 4px; }
-    .d6-chooser h2 { margin: 28px 0 12px; font-size: 18px; }
+    .d6-chooser-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      text-decoration: none;
+      margin-bottom: 8px;
+    }
+    .d6-chooser h1 { margin: 4px 0 4px; color: var(--navy); font-size: 28px; }
+    .d6-chooser h2 { margin: 26px 0 10px; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
     .d6-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .d6-grid button {
-      min-height: 72px;
+      min-height: 74px;
       padding: 16px 18px;
       text-align: left;
       font: inherit;
@@ -28,98 +51,266 @@
       font-size: 17px;
       color: var(--navy);
       background: #fff;
-      border: 1px solid #c5d0dc;
+      border: 1px solid var(--border);
       border-radius: 12px;
       cursor: pointer;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+      transition: border-color 0.12s, transform 0.08s, box-shadow 0.12s;
     }
-    .d6-grid button small { display: block; font-weight: 500; color: var(--text-muted); font-size: 13px; margin-top: 4px; }
-    .d6-grid-hub button { min-height: 56px; font-size: 16px; }
+    .d6-grid button:hover {
+      border-color: var(--sky);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.10);
+    }
+    .d6-grid button small {
+      display: block;
+      font-weight: 500;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .d6-grid-hub button { min-height: 58px; font-size: 16px; }
+
+    /* ── Workspace Top Bar ──────────────────────────────────────────────── */
+    #workspace {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
     .d6-top {
-      height: 60px;
+      height: 56px;
+      flex: none;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
       padding: 0 16px;
       background: #fff;
-      border-bottom: 1px solid #c5d0dc;
+      border-bottom: 1px solid var(--border);
     }
     .d6-top button, .d6-top .d6-back {
       margin: 0;
       width: auto;
-      min-height: 40px;
-      padding: 8px 14px;
+      min-height: 36px;
+      padding: 6px 12px;
       border-radius: 8px;
-      border: 1px solid #c5d0dc;
+      border: 1px solid var(--border);
       background: #fff;
       color: var(--navy);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .d6-top button:hover { background: #f0f6fb; }
+    .d6-back { border: none !important; padding-left: 4px !important; }
+    .d6-title {
+      flex: 1;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--navy);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #commit-btn {
+      background: var(--navy);
+      color: #fff;
+      border-color: var(--navy);
+    }
+    #commit-btn:hover { background: var(--navy-hover); }
+    #preview-btn[aria-pressed="true"] {
+      background: var(--navy);
+      color: #fff;
+      border-color: var(--navy);
+    }
+
+    /* ── Formatting & Block Action Toolbar ──────────────────────────────── */
+    #format-bar {
+      flex: none;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 6px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+    }
+    body.d6-previewing #format-bar { display: none; }
+    .d6-tool-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding-right: 8px;
+      border-right: 1px solid #d8e3eb;
+    }
+    .d6-tool-group:last-child { border-right: none; }
+    #format-bar button {
+      height: 30px;
+      min-width: 30px;
+      padding: 0 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #fff;
+      color: #1e293b;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #format-bar button:hover { background: #e8f2fb; border-color: var(--sky); }
+    #format-bar button.danger-btn { color: #b91c1c; }
+    #format-bar button.danger-btn:hover { background: #fef2f2; border-color: #fca5a5; }
+    .d6-swatch {
+      width: 22px !important;
+      min-width: 22px !important;
+      height: 22px !important;
+      padding: 0 !important;
+      border-radius: 50% !important;
+      border: 2px solid #fff !important;
+      box-shadow: 0 0 0 1px #94a3b8;
+    }
+    #page-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+    #page-nav select {
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      padding: 0 8px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--navy);
+      background: #fff;
+    }
+
+    /* ── Describe Band ──────────────────────────────────────────────────── */
+    #describe-band {
+      flex: none;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px 12px;
+    }
+    #prompt-line { margin: 0 0 6px; font-weight: 600; font-size: 14px; }
+    #describe-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    #describe-input {
+      flex: 1;
+      min-height: 56px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+      font-size: 14px;
+      margin: 0;
+    }
+    #describe-send-btn {
+      height: 56px;
+      padding: 0 16px;
+      border-radius: 8px;
+      border: 1px solid var(--navy);
+      background: var(--navy);
+      color: #fff;
       font: inherit;
       font-weight: 600;
       cursor: pointer;
     }
-    #commit-btn { background: var(--navy); color: #fff; border-color: var(--navy); }
-    #preview-btn[aria-pressed="true"] { background: #1A3A6E; color: #fff; }
-    .d6-title { flex: 1; font-weight: 700; color: var(--navy); }
-    .d6-back { color: var(--navy); font-weight: 600; background: none; border: 0; cursor: pointer; font: inherit; }
-    #describe-band { background: #fff; border-bottom: 1px solid #c5d0dc; padding: 12px 16px 14px; }
-    #prompt-line { margin: 0 0 8px; font-weight: 600; }
-    #describe-input { width: 100%; min-height: 64px; margin: 0; }
-    #transcript { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
-    #transcript:empty { display: none; }
-    .d6-msg { padding: 8px 12px; border-radius: 8px; max-width: 760px; }
-    .d6-msg-admin { background: #e8f2fb; align-self: flex-end; }
-    .d6-msg-page { background: #fff; border: 1px solid #c5d0dc; align-self: flex-start; }
-    #builder { display: flex; height: calc(100vh - 60px); min-height: 0; }
-    body.d6-describe #builder { height: calc(100vh - 210px); }
-    #palette {
-      width: 220px;
-      flex: none;
-      background: #fff;
-      border-right: 1px solid #c5d0dc;
-      padding: 14px;
+    #transcript {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
+      max-height: 120px;
+      overflow-y: auto;
+      margin-bottom: 8px;
     }
-    #palette p { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--navy); }
+    #transcript:empty { display: none; }
+    .d6-msg { padding: 7px 11px; border-radius: 8px; max-width: 760px; font-size: 14px; }
+    .d6-msg-admin { background: #e8f2fb; align-self: flex-end; }
+    .d6-msg-page { background: #fff; border: 1px solid var(--border); align-self: flex-start; }
+
+    /* ── Builder Split (Left Palette + Paper Desk) ──────────────────────── */
+    #builder {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+    #palette {
+      width: 230px;
+      flex: none;
+      background: #fff;
+      border-right: 1px solid var(--border);
+      padding: 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    body.d6-previewing #palette { display: none; }
+    #palette .pal-group-label {
+      margin: 6px 0 2px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+    #palette .pal-group-label:first-child { margin-top: 0; }
     #palette button {
-      min-height: 42px;
+      min-height: 36px;
       text-align: left;
-      padding: 8px 10px;
-      border: 1px dashed #8aa0b8;
+      padding: 6px 10px;
+      border: 1px solid #d0dbe7;
       border-radius: 8px;
-      background: #f7fafc;
+      background: #f8fafc;
       color: var(--navy);
       font: inherit;
+      font-size: 13px;
       font-weight: 600;
       cursor: grab;
+      transition: background 0.12s, border-color 0.12s;
     }
-    #page-host { flex: 1; min-width: 0; overflow: auto; }
-    body.d6-previewing #palette { display: none; }
-    .notice { padding: 10px 16px; }
-    .notice-ok { background: #ecfdf5; color: #15803d; }
-    .notice-error { background: #fef2f2; color: #b91c1c; }
-    .hidden { display: none !important; }
-    .card { background: #fff; border-radius: 12px; padding: 20px; }
-    #editor-status { margin: 0; border-radius: 0; }
+    #palette button:hover {
+      background: #eaf4fb;
+      border-color: var(--sky);
+    }
+    #page-host {
+      flex: 1;
+      min-width: 0;
+      overflow: auto;
+      padding: 24px 20px 64px;
+    }
+
+    /* ── Status Banner ──────────────────────────────────────────────────── */
+    .notice { padding: 9px 16px; font-size: 14px; font-weight: 500; }
+    .notice-ok { background: #ecfdf5; color: #15803d; border-bottom: 1px solid #a7f3d0; }
+    .notice-error { background: #fef2f2; color: #b91c1c; border-bottom: 1px solid #fecaca; }
+    #editor-status { margin: 0; border-radius: 0; flex: none; }
+
     @media (max-width: 720px) {
       .d6-grid { grid-template-columns: 1fr; }
+      #palette { width: 170px; }
     }
   </style>
 </head>
 <body class="d6-editor-page">
   <div id="sign-in-required" class="card hidden" style="max-width: 520px; margin: 40px auto;">
-    <p class="help-text" style="margin-top: 0;">Sign in on the admin page first.</p>
+    <p style="margin-top: 0;">Sign in on the admin page first.</p>
     <a href="admin.html">Back to sign in</a>
   </div>
 
   <div id="chooser">
     <div class="d6-chooser">
-      <a href="admin.html">← Admin</a>
+      <a class="d6-chooser-back" href="admin.html">← Admin</a>
       <h1 id="chooser-title">Update Components</h1>
       <div id="editor-status-chooser" class="notice hidden" role="status"></div>
-      <h2>Documents</h2>
+      <h2>Policy &amp; Reference Documents</h2>
       <div class="d6-grid" id="doc-grid"></div>
-      <h2>Hub pages</h2>
+      <h2>Hub Pages &amp; Signed Receipt</h2>
       <div class="d6-grid d6-grid-hub" id="hub-grid"></div>
     </div>
   </div>
@@ -128,26 +319,80 @@
     <header class="d6-top">
       <button type="button" class="d6-back" id="back-btn">← Documents</button>
       <div class="d6-title" id="work-title"></div>
-      <button id="preview-btn" type="button">Preview</button>
+      <button id="reset-btn" type="button">Reset to Default</button>
+      <button id="preview-btn" type="button" aria-pressed="false">Preview</button>
       <button id="done-btn" class="hidden" type="button">I'm done</button>
       <button id="commit-btn" type="button">Commit to save all changes</button>
     </header>
+
+    <div id="format-bar">
+      <div class="d6-tool-group">
+        <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
+        <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
+        <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+        <button type="button" data-cmd="insertUnorderedList" title="Bullet list">&bull; List</button>
+      </div>
+      <div class="d6-tool-group">
+        <button type="button" data-cmd="justifyLeft" title="Align left">Left</button>
+        <button type="button" data-cmd="justifyCenter" title="Align center">Center</button>
+        <button type="button" data-cmd="justifyRight" title="Align right">Right</button>
+      </div>
+      <div class="d6-tool-group">
+        <button type="button" class="d6-swatch" data-color="#003a70" style="background:#003a70" title="Navy"></button>
+        <button type="button" class="d6-swatch" data-color="#62b5e5" style="background:#62b5e5" title="Light Blue"></button>
+        <button type="button" class="d6-swatch" data-color="#c8102e" style="background:#c8102e" title="Red"></button>
+        <button type="button" class="d6-swatch" data-color="#b45309" style="background:#f59e0b" title="Amber"></button>
+        <button type="button" class="d6-swatch" data-color="#047857" style="background:#047857" title="Green"></button>
+        <button type="button" class="d6-swatch" data-color="#1f2937" style="background:#1f2937" title="Dark Text"></button>
+        <button type="button" class="d6-swatch" data-color="#ffffff" style="background:#ffffff" title="White"></button>
+      </div>
+      <div class="d6-tool-group">
+        <button type="button" id="move-up-btn" title="Move selected section up">&uarr; Up</button>
+        <button type="button" id="move-down-btn" title="Move selected section down">&darr; Down</button>
+        <button type="button" id="dup-block-btn" title="Duplicate selected section">Duplicate</button>
+        <button type="button" id="del-block-btn" class="danger-btn" title="Delete selected section">Delete</button>
+        <button type="button" id="replace-img-btn" class="hidden">Replace Image</button>
+      </div>
+      <div id="page-nav" class="hidden">
+        <select id="page-select" aria-label="Jump to page"></select>
+        <button type="button" id="add-page-btn">+ Page</button>
+      </div>
+    </div>
+
     <div id="editor-status" class="notice hidden" role="status"></div>
+
     <section id="describe-band" class="hidden">
       <p id="prompt-line">Please describe the changes you would like to see.</p>
       <div id="transcript"></div>
-      <textarea id="describe-input" rows="2" aria-label="Describe the changes you would like to see"></textarea>
+      <div id="describe-row">
+        <textarea id="describe-input" rows="2" aria-label="Describe the changes you would like to see"></textarea>
+        <button id="describe-send-btn" type="button">Send</button>
+      </div>
     </section>
+
     <div id="builder">
       <aside id="palette">
-        <p>Drag onto the page</p>
-        <button type="button" draggable="true" data-block="h2">Heading</button>
+        <div class="pal-group-label">Headers &amp; Text</div>
+        <button type="button" draggable="true" data-block="hero">Hero Banner</button>
+        <button type="button" draggable="true" data-block="h2">Section Heading</button>
         <button type="button" draggable="true" data-block="h3">Subheading</button>
-        <button type="button" draggable="true" data-block="p">Text</button>
+        <button type="button" draggable="true" data-block="p">Paragraph</button>
+        <button type="button" draggable="true" data-block="ul">Bullet List</button>
+
+        <div class="pal-group-label">Callouts &amp; Cards</div>
+        <button type="button" draggable="true" data-block="callout-info">Info Callout (Blue)</button>
+        <button type="button" draggable="true" data-block="callout-warn">Warning Callout (Yellow)</button>
+        <button type="button" draggable="true" data-block="callout-danger">Critical Rule (Red)</button>
+        <button type="button" draggable="true" data-block="grid-2">2-Column Info Cards</button>
+        <button type="button" draggable="true" data-block="ok-no-grid">Acceptable / Not Allowed</button>
+        <button type="button" draggable="true" data-block="step-row">Numbered Step</button>
+        <button type="button" draggable="true" data-block="phase-card">Phase Card</button>
+        <button type="button" draggable="true" data-block="references">References Box</button>
         <button type="button" draggable="true" data-block="img">Image</button>
       </aside>
       <div id="page-host"></div>
     </div>
+
     <input id="piece-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" />
   </div>
 

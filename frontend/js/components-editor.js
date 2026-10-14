@@ -1,39 +1,36 @@
 /*
- * Chooser, then a full-window editor.
- * Documents (the PDFs people read) come first. Hub pages are second.
- * One document or one page is open at a time. Switching does not leave this screen.
+ * District 6 Visual Document & Hub Page Editor.
+ *
+ * Documents (Attendance, Dress Code, SOP, Handbook, Kompass, Vendor) open as
+ * exact 8.5in × 11in US Letter pages matching the live PDFs 1:1. Hub pages
+ * (Home, Acknowledgement, Thank you) and the Signed Receipt open with their
+ * live styles. Every text element, list, card, callout, banner, and image is
+ * editable in place without wrapper divs that break grid/flex layouts.
  */
 (function () {
   'use strict';
 
   const API_BASE = window.D6_CONFIG.API_BASE;
   const JWT_KEY = 'd6-admin-jwt';
-  const IDB_NAME = 'd6-component-drafts';
+  const IDB_NAME = 'd6-component-drafts-v2';
   const IDB_STORE = 'pages';
   const SAVE_DEBOUNCE_MS = 400;
 
   const DOCS = [
-    { key: 'doc-attendance', title: 'Attendance & Timekeeping', file: 'content/docs/attendance.html', kind: 'Required policy' },
-    { key: 'doc-dress-code', title: 'Dress Code', file: 'content/docs/dress-code.html', kind: 'Required policy' },
-    { key: 'doc-sop', title: 'Standard Operating Procedures', file: 'content/docs/sop.html', kind: 'Required policy' },
-    { key: 'doc-handbook', title: 'Teammate Handbook', file: 'content/docs/handbook.html', kind: 'Reference' },
-    { key: 'doc-kompass', title: 'Kompass Responsibilities', file: 'content/docs/kompass.html', kind: 'Reference' },
-    { key: 'doc-vendor', title: 'Fred Meyer Vendor Policies', file: 'content/docs/vendor.html', kind: 'Reference' },
+    { key: 'doc-attendance', title: 'Attendance & Timekeeping', file: 'content/docs/attendance.html', kind: 'Required policy · 3 pages' },
+    { key: 'doc-dress-code', title: 'Dress Code', file: 'content/docs/dress-code.html', kind: 'Required policy · 2 pages' },
+    { key: 'doc-sop', title: 'Standard Operating Procedures', file: 'content/docs/sop.html', kind: 'Required policy · 3 pages' },
+    { key: 'doc-kompass', title: 'Kompass Responsibilities', file: 'content/docs/kompass.html', kind: 'Reference · 3 pages' },
+    { key: 'doc-vendor', title: 'Fred Meyer Vendor Policies', file: 'content/docs/vendor.html', kind: 'Reference · 3 pages' },
+    { key: 'doc-handbook', title: 'Teammate Handbook', file: 'content/docs/handbook.html', kind: 'Reference · 56 pages' },
   ];
 
   const HUBS = [
-    { key: 'home', title: 'Home', file: 'index.html' },
-    { key: 'acknowledgement', title: 'Acknowledgement', file: 'sign.html' },
-    { key: 'thankyou', title: 'Thank you', file: 'thanks.html' },
-    { key: 'receipt', title: 'Receipt', file: null },
+    { key: 'home', title: 'Home', file: 'index.html', kind: 'Hub page' },
+    { key: 'acknowledgement', title: 'Acknowledgement', file: 'sign.html', kind: 'Hub page' },
+    { key: 'thankyou', title: 'Thank you', file: 'thanks.html', kind: 'Hub page' },
+    { key: 'receipt', title: 'Signed Receipt PDF', file: null, kind: 'Letter PDF template' },
   ];
-
-  const DOC_CSS = [
-    '.d6-doc-page { background:#fff; padding: 8px 4px 28px; }',
-    '.d6-doc-page h2 { font-size: 22px; line-height: 1.25; margin: 0 0 10px; color: #1A3A6E; }',
-    '.d6-doc-page h3 { font-size: 16px; margin: 18px 0 6px; color: #1A3A6E; }',
-    '.d6-doc-page p { font-size: 15px; line-height: 1.45; margin: 0 0 8px; }',
-  ].join('\n');
 
   const mode = new URLSearchParams(location.search).get('mode') === 'describe' ? 'describe' : 'manual';
 
@@ -45,24 +42,37 @@
     workspace: document.getElementById('workspace'),
     backBtn: document.getElementById('back-btn'),
     workTitle: document.getElementById('work-title'),
+    resetBtn: document.getElementById('reset-btn'),
+    previewBtn: document.getElementById('preview-btn'),
+    doneBtn: document.getElementById('done-btn'),
+    commitBtn: document.getElementById('commit-btn'),
     status: document.getElementById('editor-status'),
     describeBand: document.getElementById('describe-band'),
     transcript: document.getElementById('transcript'),
     describeInput: document.getElementById('describe-input'),
+    describeSendBtn: document.getElementById('describe-send-btn'),
     pageHost: document.getElementById('page-host'),
     pieceFile: document.getElementById('piece-file'),
-    doneBtn: document.getElementById('done-btn'),
-    previewBtn: document.getElementById('preview-btn'),
-    commitBtn: document.getElementById('commit-btn'),
+    moveUpBtn: document.getElementById('move-up-btn'),
+    moveDownBtn: document.getElementById('move-down-btn'),
+    dupBlockBtn: document.getElementById('dup-block-btn'),
+    delBlockBtn: document.getElementById('del-block-btn'),
+    replaceImgBtn: document.getElementById('replace-img-btn'),
+    pageNav: document.getElementById('page-nav'),
+    pageSelect: document.getElementById('page-select'),
+    addPageBtn: document.getElementById('add-page-btn'),
     signInRequired: document.getElementById('sign-in-required'),
   };
 
   let current = null;
   let draft = null;
   let pageRoot = null;
+  let selectedBlock = null;
+  let selectedImage = null;
+  let activePageEl = null;
   let previewOn = false;
   let siteCssText = '';
-  let selectedImage = null;
+  let docCssText = '';
   let saveTimer = null;
   let saving = false;
   let questionsAsked = 0;
@@ -94,11 +104,14 @@
     return res;
   }
 
-  function targetByKey(key) {
-    return DOCS.find((d) => d.key === key) || HUBS.find((h) => h.key === key) || null;
+  function isDoc(key) { return key && key.indexOf('doc-') === 0; }
+
+  function isAccurateDocHtml(key, html) {
+    if (!isDoc(key)) return Boolean(html && html.trim());
+    return typeof html === 'string' && html.includes('data-doc-version="2"');
   }
 
-  function isDoc(key) { return key.indexOf('doc-') === 0; }
+  // ── IndexedDB ──────────────────────────────────────────────────────────────
 
   function openDb() {
     return new Promise((resolve, reject) => {
@@ -136,6 +149,18 @@
     } catch (_e) { /* server copy remains */ }
   }
 
+  async function idbDelete(pageKey) {
+    try {
+      const db = await openDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(pageKey);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (_e) { /* ignore */ }
+  }
+
   function pickNewer(a, b) {
     if (!a) return b || null;
     if (!b) return a;
@@ -143,16 +168,18 @@
   }
 
   async function fetchServerDraft(pageKey) {
-    const res = await api('/api/admin/components/draft/' + pageKey);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok || !data.draft) return null;
-    return {
-      pageKey,
-      projectJson: data.draft.projectJson || data.draft.project_json || {},
-      html: data.draft.html || '',
-      css: data.draft.css || '',
-      updatedAt: data.draft.updatedAt || data.draft.updated_at,
-    };
+    try {
+      const res = await api('/api/admin/components/draft/' + pageKey);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.draft) return null;
+      return {
+        pageKey,
+        projectJson: data.draft.projectJson || data.draft.project_json || {},
+        html: data.draft.html || '',
+        css: data.draft.css || '',
+        updatedAt: data.draft.updatedAt || data.draft.updated_at,
+      };
+    } catch (_e) { return null; }
   }
 
   async function seedFromFile(target) {
@@ -163,15 +190,19 @@
     }
     const res = await fetch(target.file, { cache: 'no-store' });
     const text = await res.text();
-    if (isDoc(target.key)) return { html: text, css: DOC_CSS };
+    if (isDoc(target.key)) {
+      return { html: text, css: '' };
+    }
     const doc = new DOMParser().parseFromString(text, 'text/html');
     const canvas = doc.querySelector('[data-d6-canvas]');
-    return { html: canvas ? canvas.innerHTML : '', css: '' };
+    return { html: canvas ? canvas.innerHTML : text, css: '' };
   }
 
   async function loadDraft(target) {
     const [local, server] = await Promise.all([idbGet(target.key), fetchServerDraft(target.key)]);
-    let best = pickNewer(local, server);
+    const validLocal = local && isAccurateDocHtml(target.key, local.html) ? local : null;
+    const validServer = server && isAccurateDocHtml(target.key, server.html) ? server : null;
+    let best = pickNewer(validLocal, validServer);
     if (!best || !best.html) {
       const seeded = await seedFromFile(target);
       best = {
@@ -179,23 +210,22 @@
         projectJson: {},
         html: seeded.html,
         css: seeded.css,
-        updatedAt: new Date(0).toISOString(),
+        updatedAt: new Date().toISOString(),
       };
     }
     draft = best;
   }
 
-  function captureFromStudio() {
+  // ── Serialization (Strips only editor selection state) ────────────────────
+
+  function captureCleanHtml() {
     if (!pageRoot || !draft) return;
     const clone = pageRoot.cloneNode(true);
-    clone.querySelectorAll('.d6-block').forEach((block) => {
-      const inner = block.querySelector(':scope > :not(.d6-handle)');
-      if (inner) block.replaceWith(inner);
-    });
     clone.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
+    clone.querySelectorAll('[data-d6-selected]').forEach((el) => el.removeAttribute('data-d6-selected'));
+    clone.querySelectorAll('[data-d6-drop]').forEach((el) => el.removeAttribute('data-d6-drop'));
     const html = clone.innerHTML.trim();
-    if (!html) return;
-    draft.html = html;
+    if (html) draft.html = html;
   }
 
   function record() {
@@ -212,13 +242,13 @@
     clearTimeout(saveTimer);
     if (!draft || saving) return;
     saving = true;
-    captureFromStudio();
+    captureCleanHtml();
     draft.updatedAt = new Date().toISOString();
     const body = record();
     await idbPut(body);
     try {
       await api('/api/admin/components/draft', { method: 'PUT', body: JSON.stringify(body) });
-    } catch (_e) { /* indexedDB holds it */ }
+    } catch (_e) { /* IndexedDB keeps it safe */ }
     saving = false;
   }
 
@@ -229,7 +259,7 @@
 
   function flushBeacon() {
     if (!draft) return;
-    captureFromStudio();
+    captureCleanHtml();
     draft.updatedAt = new Date().toISOString();
     const body = record();
     idbPut(body);
@@ -245,148 +275,361 @@
 
   window.addEventListener('pagehide', flushBeacon);
 
-  function setPreview(on) {
-    previewOn = on;
-    if (!els.previewBtn) return;
-    els.previewBtn.textContent = on ? 'Back to editing' : 'Preview';
-    els.previewBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  }
+  // ── Component Templates for Palette Insertion ──────────────────────────────
 
-  const NEW_BLOCKS = {
-    h2: '<h2>Heading</h2>',
-    h3: '<h3>Subheading</h3>',
-    p: '<p>Text</p>',
-    img: '<img src="assets/logo.png" alt="">',
+  const BLOCK_TEMPLATES = {
+    hero:
+      '<div class="hero">' +
+        '<div class="hero-title-row">' +
+          '<h1>Policy Title</h1>' +
+          '<span class="edition-inline">| &nbsp;S P R I N G &nbsp;2 0 2 6 &nbsp;E D I T I O N</span>' +
+        '</div>' +
+        '<div class="meta-line"><strong>Effective May 1, 2026</strong> &nbsp;&middot;&nbsp; Owner: April Gauthier, Supervisor, Eastern Washington</div>' +
+      '</div>',
+    h2: '<h2>Section Heading</h2>',
+    h3: '<h3>Subsection Heading</h3>',
+    p: '<p>Enter policy text here.</p>',
+    ul: '<ul><li>First key expectation or requirement.</li><li>Second expectation or requirement.</li></ul>',
+    'callout-info':
+      '<div class="callout info">' +
+        '<div class="callout-title">Key Reminder</div>' +
+        '<p>Enter important reminder details here with <strong>highlighted key terms</strong>.</p>' +
+      '</div>',
+    'callout-warn':
+      '<div class="callout warn">' +
+        '<div class="callout-title">&#9888; Important Requirement</div>' +
+        '<p><strong>Advance notice required.</strong> Provide the supporting details here.</p>' +
+      '</div>',
+    'callout-danger':
+      '<div class="callout danger">' +
+        '<div class="callout-title">&#9888; Critical Rule</div>' +
+        '<p>Contact your <strong>direct Supervisor</strong> immediately if this situation occurs.</p>' +
+      '</div>',
+    'grid-2':
+      '<div class="grid-2">' +
+        '<div class="info-card">' +
+          '<div class="card-eyebrow">Left Column Title</div>' +
+          '<ul><li>First point</li><li>Second point</li></ul>' +
+        '</div>' +
+        '<div class="info-card">' +
+          '<div class="card-eyebrow">Right Column Title</div>' +
+          '<ul><li>First point</li><li>Second point</li></ul>' +
+        '</div>' +
+      '</div>',
+    'ok-no-grid':
+      '<div class="grid-2">' +
+        '<div class="status-box ok" style="margin:0;">' +
+          '<div class="status-header">&#10003; Acceptable</div>' +
+          '<ul><li>Approved item one</li><li>Approved item two</li></ul>' +
+        '</div>' +
+        '<div class="status-box no" style="margin:0;">' +
+          '<div class="status-header">&#10005; Not Acceptable</div>' +
+          '<ul><li>Prohibited item one</li><li>Prohibited item two</li></ul>' +
+        '</div>' +
+      '</div>',
+    'step-row':
+      '<div class="step-row">' +
+        '<span class="step-badge">1</span>' +
+        '<div class="step-body">' +
+          '<p class="step-title">Step Title</p>' +
+          '<p class="step-detail">Describe what happens during this step.</p>' +
+        '</div>' +
+      '</div>',
+    'phase-card':
+      '<div class="phase-card phase-1">' +
+        '<span class="phase-pill">Phase 1 &middot; Step</span>' +
+        '<div class="phase-title">Phase Heading</div>' +
+        '<ul><li>First action item</li><li>Second action item</li></ul>' +
+      '</div>',
+    references:
+      '<div class="references-box">' +
+        '<div class="ref-label">References</div>' +
+        '<p class="ref-links"><strong>Teammate Handbook</strong> &nbsp;&middot;&nbsp; <strong>Fred Meyer Vendor Policies</strong> &nbsp;&middot;&nbsp; <strong>Kompass Program Responsibilities</strong></p>' +
+      '</div>',
+    img: '<div style="margin: 10px 0; text-align: center;"><img src="assets/logo.png" alt="Image" style="max-width: 100%; height: auto;" /></div>',
   };
 
-  const EDITOR_CSS = [
+  const SHADOW_EDITOR_CSS = [
+    ':host { display: block; }',
     '.d6-sheet { min-height: 100%; }',
-    '.d6-block { position: relative; }',
-    '.d6-block .d6-handle {',
-    '  position: absolute; left: -28px; top: 4px; width: 22px; text-align: center;',
-    '  cursor: grab; color: #5b6b7c; font-size: 14px; user-select: none;',
+    '.d6-hub-wrap { max-width: 820px; margin: 0 auto; background: #f4f6fa; padding: 12px 20px 48px; border-radius: 10px; box-shadow: 0 6px 24px rgba(15, 23, 42, 0.12); }',
+    '.d6-receipt-wrap { width: 8.5in; min-height: 11in; padding: 0.55in 0.6in; margin: 0 auto 28px; background: #fff; box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14); border-radius: 3px; }',
+    '[contenteditable="true"] { outline: none; }',
+    '.d6-sheet:not(.d6-preview) .d6-doc-page > *:hover,',
+    '.d6-sheet:not(.d6-preview) .d6-receipt-wrap > *:hover,',
+    '.d6-sheet:not(.d6-preview) .d6-hub-wrap .card:hover,',
+    '.d6-sheet:not(.d6-preview) .d6-hub-wrap h1:hover,',
+    '.d6-sheet:not(.d6-preview) .d6-hub-wrap p.lead:hover {',
+    '  outline: 1px dashed #62b5e5;',
+    '  outline-offset: 3px;',
     '}',
-    '.d6-block:hover { outline: 1px dashed #5BA8E0; }',
-    '[contenteditable="true"]:focus { outline: 2px solid #1A3A6E; outline-offset: 2px; }',
-    'img { max-width: 100%; cursor: pointer; }',
-    '.d6-preview .d6-handle { display: none; }',
-    '.d6-preview .d6-block:hover { outline: none; }',
+    '.d6-sheet:not(.d6-preview) [data-d6-selected="1"] {',
+    '  outline: 2px solid #003a70 !important;',
+    '  outline-offset: 3px;',
+    '  border-radius: 4px;',
+    '}',
+    '.d6-sheet:not(.d6-preview) [data-d6-drop="1"] {',
+    '  box-shadow: 0 -3px 0 0 #003a70 !important;',
+    '}',
+    'img { cursor: pointer; }',
   ].join('\n');
 
-  function wrapElement(el) {
-    if (!el || el.classList.contains('d6-block') || el.classList.contains('d6-handle')) return;
-    if (!el.matches('h1,h2,h3,h4,p,img,ul,ol,table,a,button,blockquote')) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'd6-block';
-    wrap.draggable = true;
-    const handle = document.createElement('span');
-    handle.className = 'd6-handle';
-    handle.textContent = '⋮⋮';
-    handle.setAttribute('contenteditable', 'false');
-    el.before(wrap);
-    wrap.appendChild(handle);
-    wrap.appendChild(el);
-    if (!el.matches('img,table,ul,ol')) el.setAttribute('contenteditable', 'true');
-  }
-
-  function wrapBlocks(container) {
-    Array.from(container.children).forEach((child) => {
-      if (child.matches('section,div,main,article,header,footer') && !child.matches('img')) {
-        wrapBlocks(child);
-        return;
-      }
-      wrapElement(child);
-    });
-  }
-
-  function nearestBlock(node) {
-    while (node && node !== pageRoot) {
-      if (node.classList && node.classList.contains('d6-block')) return node;
-      node = node.parentNode;
+  function selectBlock(blockEl, imgEl) {
+    if ( pageRoot ) {
+      pageRoot.querySelectorAll('[data-d6-selected]').forEach((el) => el.removeAttribute('data-d6-selected'));
     }
+    selectedBlock = blockEl || null;
+    selectedImage = imgEl || null;
+    if (selectedBlock && !previewOn) {
+      selectedBlock.setAttribute('data-d6-selected', '1');
+      const pg = selectedBlock.closest('.d6-doc-page');
+      if (pg) activePageEl = pg;
+    }
+    if (els.replaceImgBtn) {
+      els.replaceImgBtn.classList.toggle('hidden', !selectedImage);
+    }
+  }
+
+  function findSelectableBlock(target) {
+    if (!target || !pageRoot || !pageRoot.contains(target)) return null;
+    const page = target.closest('.d6-doc-page');
+    if (page) {
+      activePageEl = page;
+      let node = target;
+      while (node && node.parentElement !== page) {
+        node = node.parentElement;
+      }
+      if (node && node.parentElement === page) return node;
+      return page;
+    }
+    const receiptWrap = target.closest('.d6-receipt-wrap');
+    if (receiptWrap) {
+      let node = target;
+      while (node && node.parentElement !== receiptWrap) {
+        node = node.parentElement;
+      }
+      if (node && node.parentElement === receiptWrap) return node;
+    }
+    const hubBlock = target.closest('.doc-card, .ref-card, section.card, h1, p.lead, .brand, footer');
+    if (hubBlock) return hubBlock;
     return null;
   }
 
-  function insertHtml(html, before) {
+  function refreshPageNav() {
+    if (!pageRoot || !isDoc(current && current.key)) {
+      els.pageNav.classList.add('hidden');
+      return;
+    }
+    const pages = Array.from(pageRoot.querySelectorAll('.d6-doc-page'));
+    if (!pages.length) {
+      els.pageNav.classList.add('hidden');
+      return;
+    }
+    els.pageNav.classList.remove('hidden');
+    els.pageSelect.innerHTML = '';
+    const total = pages.length;
+    pages.forEach((pg, idx) => {
+      const num = idx + 1;
+      pg.setAttribute('data-page', String(num));
+      const footerRight = pg.querySelector('.d6-page-footer span:last-child');
+      if (footerRight && /Page\s+\d+\s+of\s+\d+/i.test(footerRight.textContent)) {
+        footerRight.textContent = footerRight.textContent.replace(/Page\s+\d+\s+of\s+\d+/i, 'Page ' + num + ' of ' + total);
+      }
+      const opt = document.createElement('option');
+      opt.value = String(idx);
+      opt.textContent = 'Page ' + num + ' of ' + total;
+      els.pageSelect.appendChild(opt);
+    });
+  }
+
+  function insertSnippet(blockKey, beforeEl) {
+    const html = BLOCK_TEMPLATES[blockKey] || BLOCK_TEMPLATES.p;
     const holder = document.createElement('div');
     holder.innerHTML = html;
-    const el = holder.firstElementChild;
-    if (!el || !pageRoot) return;
-    const target = before || pageRoot;
-    if (before) before.before(el);
-    else pageRoot.appendChild(el);
-    wrapElement(el);
+    const newEl = holder.firstElementChild;
+    if (!newEl || !pageRoot) return;
+
+    if (beforeEl && beforeEl.parentNode) {
+      beforeEl.before(newEl);
+    } else if (selectedBlock && selectedBlock.parentNode && !selectedBlock.classList.contains('d6-doc-page')) {
+      selectedBlock.after(newEl);
+    } else {
+      const targetPage =
+        activePageEl ||
+        (pageRoot.querySelector && pageRoot.querySelector('.d6-doc-page')) ||
+        (pageRoot.querySelector && pageRoot.querySelector('.d6-receipt-wrap')) ||
+        pageRoot;
+      const footer = targetPage.querySelector && targetPage.querySelector(':scope > .d6-page-footer');
+      if (footer) footer.before(newEl);
+      else targetPage.appendChild(newEl);
+    }
+    selectBlock(newEl, null);
+    newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    scheduleSave();
+  }
+
+  function addNewPage() {
+    if (!pageRoot || !isDoc(current && current.key)) return;
+    const sheet = pageRoot.querySelector('.d6-doc-sheet') || pageRoot;
+    const pages = sheet.querySelectorAll('.d6-doc-page');
+    const nextNum = pages.length + 1;
+    const sampleFooterLeft =
+      (pages[0] && pages[0].querySelector('.d6-page-footer span:first-child') &&
+        pages[0].querySelector('.d6-page-footer span:first-child').textContent) ||
+      ('Retail Odyssey | ' + current.title + ' | Spring 2026');
+    const sec = document.createElement('section');
+    sec.className = 'd6-doc-page';
+    sec.setAttribute('data-page', String(nextNum));
+    sec.setAttribute('contenteditable', previewOn ? 'false' : 'true');
+    sec.innerHTML =
+      '<h2 class="h2-top">New Section</h2>' +
+      '<p>Enter policy content for this page.</p>' +
+      '<footer class="d6-page-footer">' +
+        '<span>' + sampleFooterLeft + '</span>' +
+        '<span>Page ' + nextNum + ' of ' + nextNum + '</span>' +
+      '</footer>';
+    sheet.appendChild(sec);
+    activePageEl = sec;
+    refreshPageNav();
+    els.pageSelect.value = String(nextNum - 1);
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
     scheduleSave();
   }
 
   function renderPage() {
     setPreview(false);
-    const html = draft.html || '<section class="d6-doc-page"><h2>Heading</h2><p>Text</p></section>';
+    selectedBlock = null;
+    selectedImage = null;
+    activePageEl = null;
+    if (els.replaceImgBtn) els.replaceImgBtn.classList.add('hidden');
+
     const docMode = isDoc(current.key);
-    const look = docMode ? (DOC_CSS + '\n' + (draft.css || '')) : (siteCssText + '\n' + (draft.css || ''));
+    const receiptMode = current.key === 'receipt';
+    let baseCss = '';
+    if (docMode) {
+      baseCss = docCssText + '\n' + (draft.css || '');
+    } else if (receiptMode) {
+      baseCss = docCssText + '\n' + (draft.css || '');
+    } else {
+      baseCss = siteCssText + '\n' + (draft.css || '');
+    }
+
     if (!els.pageHost.shadowRoot) els.pageHost.attachShadow({ mode: 'open' });
     const shadow = els.pageHost.shadowRoot;
-    shadow.innerHTML = '<style>' + EDITOR_CSS + '\n' + look + '</style><div class="d6-sheet" id="sheet"></div>';
+
+    let innerWrapClass = 'd6-sheet';
+    let bodyHtml = draft.html || '';
+    if (receiptMode && !bodyHtml.includes('d6-receipt-wrap')) {
+      innerWrapClass = 'd6-sheet d6-receipt-wrap';
+    } else if (!docMode && !receiptMode) {
+      innerWrapClass = 'd6-sheet d6-hub-wrap';
+    }
+
+    shadow.innerHTML =
+      '<style>' + SHADOW_EDITOR_CSS + '\n' + baseCss + '</style>' +
+      '<div class="' + innerWrapClass + '" id="sheet"></div>';
+
     pageRoot = shadow.getElementById('sheet');
-    pageRoot.innerHTML = html;
-    wrapBlocks(pageRoot);
+    pageRoot.innerHTML = bodyHtml;
+
+    if (docMode) {
+      const pages = pageRoot.querySelectorAll('.d6-doc-page');
+      pages.forEach((pg) => pg.setAttribute('contenteditable', 'true'));
+      activePageEl = pages[0] || null;
+    } else {
+      pageRoot.setAttribute('contenteditable', 'true');
+    }
+
+    refreshPageNav();
+
     pageRoot.addEventListener('input', scheduleSave);
-    pageRoot.addEventListener('dragstart', (event) => {
-      const block = nearestBlock(event.target);
-      if (!block) return;
-      event.dataTransfer.setData('text/d6-move', '1');
-      event.dataTransfer.setData('text/plain', 'move');
-      block.dataset.moving = '1';
-    });
-    pageRoot.addEventListener('dragover', (event) => {
-      event.preventDefault();
-    });
-    pageRoot.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const fresh = event.dataTransfer.getData('text/d6-new');
-      const moving = pageRoot.querySelector('[data-moving="1"]');
-      const hit = nearestBlock(event.target) || pageRoot.lastElementChild;
-      if (fresh) {
-        insertHtml(fresh, hit);
-        return;
-      }
-      if (moving && hit && hit !== moving) {
-        hit.before(moving);
-        delete moving.dataset.moving;
-        scheduleSave();
-      }
-    });
-    pageRoot.addEventListener('dragend', () => {
-      pageRoot.querySelectorAll('[data-moving]').forEach((el) => delete el.dataset.moving);
-    });
+
     pageRoot.addEventListener('click', (event) => {
-      const image = event.target.closest && event.target.closest('img');
-      if (image && pageRoot.contains(image)) {
-        selectedImage = image;
-        els.pieceFile.click();
-      }
       const anchor = event.target.closest && event.target.closest('a');
       if (anchor) event.preventDefault();
+      const button = event.target.closest && event.target.closest('button');
+      if (button) event.preventDefault();
+
+      const img = event.target.closest && event.target.closest('img');
+      const block = findSelectableBlock(event.target);
+      selectBlock(block, img || null);
     });
+
+    pageRoot.addEventListener('dragover', (event) => {
+      if (previewOn) return;
+      event.preventDefault();
+      const over = findSelectableBlock(event.target);
+      pageRoot.querySelectorAll('[data-d6-drop]').forEach((el) => el.removeAttribute('data-d6-drop'));
+      if (over && !over.classList.contains('d6-doc-page')) {
+        over.setAttribute('data-d6-drop', '1');
+      }
+    });
+
+    pageRoot.addEventListener('dragleave', () => {
+      if (!pageRoot) return;
+      pageRoot.querySelectorAll('[data-d6-drop]').forEach((el) => el.removeAttribute('data-d6-drop'));
+    });
+
+    pageRoot.addEventListener('drop', (event) => {
+      if (previewOn) return;
+      event.preventDefault();
+      pageRoot.querySelectorAll('[data-d6-drop]').forEach((el) => el.removeAttribute('data-d6-drop'));
+      const blockKey = event.dataTransfer.getData('text/d6-new');
+      if (blockKey) {
+        const hit = findSelectableBlock(event.target);
+        const before = hit && !hit.classList.contains('d6-doc-page') ? hit : null;
+        insertSnippet(blockKey, before);
+      }
+    });
+  }
+
+  function setPreview(on) {
+    previewOn = on;
+    els.previewBtn.textContent = on ? 'Back to editing' : 'Preview';
+    els.previewBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    document.body.classList.toggle('d6-previewing', on);
   }
 
   function togglePreview() {
-    previewOn = !previewOn;
-    setPreview(previewOn);
-    document.body.classList.toggle('d6-previewing', previewOn);
+    setPreview(!previewOn);
     if (!pageRoot) return;
     pageRoot.classList.toggle('d6-preview', previewOn);
-    pageRoot.querySelectorAll('[contenteditable]').forEach((el) => {
-      el.setAttribute('contenteditable', previewOn ? 'false' : 'true');
-    });
+    if (previewOn) selectBlock(null, null);
+    const editables = isDoc(current && current.key)
+      ? pageRoot.querySelectorAll('.d6-doc-page')
+      : [pageRoot];
+    editables.forEach((el) => el.setAttribute('contenteditable', previewOn ? 'false' : 'true'));
   }
 
-  function destroyStudio() {
-    captureFromStudio();
+  function destroyWorkspace() {
+    captureCleanHtml();
     pageRoot = null;
+    selectedBlock = null;
+    selectedImage = null;
+    activePageEl = null;
     if (els.pageHost.shadowRoot) els.pageHost.shadowRoot.innerHTML = '';
     setPreview(false);
-    document.body.classList.remove('d6-previewing');
+  }
+
+  async function resetCurrentToDefault() {
+    if (!current) return;
+    clearTimeout(saveTimer);
+    hideStatus();
+    await idbDelete(current.key);
+    try {
+      await api('/api/admin/components/draft/' + current.key, { method: 'DELETE' });
+    } catch (_e) { /* ignore */ }
+    const seeded = await seedFromFile(current);
+    draft = {
+      pageKey: current.key,
+      projectJson: {},
+      html: seeded.html,
+      css: seeded.css,
+      updatedAt: new Date().toISOString(),
+    };
+    renderPage();
+    await saveNow();
+    showStatus('Restored the clean document layout.', 'ok');
   }
 
   async function openTarget(target) {
@@ -401,22 +644,26 @@
     els.workspace.classList.remove('hidden');
     await loadDraft(target);
     renderPage();
+    await saveNow();
   }
 
   async function backToChooser() {
     await saveNow();
-    destroyStudio();
+    destroyWorkspace();
     current = null;
     draft = null;
     els.workspace.classList.add('hidden');
     els.chooser.classList.remove('hidden');
   }
 
+  // ── Describe Mode ──────────────────────────────────────────────────────────
+
   function pushTranscript(who, text) {
     const div = document.createElement('div');
     div.className = 'd6-msg ' + (who === 'admin' ? 'd6-msg-admin' : 'd6-msg-page');
     div.textContent = text;
     els.transcript.appendChild(div);
+    els.transcript.scrollTop = els.transcript.scrollHeight;
   }
 
   async function sendDescribeMessage() {
@@ -425,6 +672,7 @@
     els.describeInput.value = '';
     pushTranscript('admin', message);
     els.describeInput.disabled = true;
+    els.describeSendBtn.disabled = true;
     hideStatus();
     try {
       await saveNow();
@@ -434,7 +682,7 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        showStatus(data.error || 'Could not send that. Try again.', 'error');
+        showStatus(data.error || 'Could not apply that change. Try again.', 'error');
         return;
       }
       if (data.kind === 'question') {
@@ -445,8 +693,8 @@
         history.push({ who: 'admin', text: message });
         if (data.draft) {
           draft = Object.assign({}, draft, data.draft, { pageKey: current.key });
-          destroyStudio();
           renderPage();
+          await idbPut(record());
         }
         pushTranscript('page', 'Changes applied.');
       }
@@ -454,8 +702,12 @@
       showStatus('Network error. Please try again.', 'error');
     } finally {
       els.describeInput.disabled = false;
+      els.describeSendBtn.disabled = false;
+      els.describeInput.focus();
     }
   }
+
+  // ── Publish ────────────────────────────────────────────────────────────────
 
   async function commitChanges() {
     if (!current) return;
@@ -473,7 +725,12 @@
         showStatus(data.error || 'Could not publish. Try again.', 'error');
         return;
       }
-      showStatus(isDoc(current.key) ? 'Published. The PDF updates on the next load.' : 'Published. The live page updates on its next load.', 'ok');
+      showStatus(
+        isDoc(current.key)
+          ? 'Published. The updated PDF and document are live.'
+          : 'Published. The live page updates on its next load.',
+        'ok',
+      );
     } catch (_e) {
       showStatus('Network error. Please try again.', 'error');
     } finally {
@@ -492,17 +749,21 @@
     });
   }
 
+  // ── Boot & Event Wiring ────────────────────────────────────────────────────
+
   async function start() {
     if (!jwt()) {
       els.chooser.classList.add('hidden');
       els.signInRequired.classList.remove('hidden');
       return;
     }
+
     if (mode === 'describe') {
       document.body.classList.add('d6-describe');
       els.chooserTitle.textContent = 'Describe your changes';
       els.describeBand.classList.remove('hidden');
       els.doneBtn.classList.remove('hidden');
+      els.describeSendBtn.addEventListener('click', sendDescribeMessage);
       els.describeInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
@@ -510,34 +771,126 @@
         }
       });
       els.doneBtn.addEventListener('click', async () => {
-        await saveNow();
-        const res = await api('/api/admin/components/polish', {
-          method: 'POST',
-          body: JSON.stringify({ pageKey: current.key }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.ok && data.draft) {
-          draft = Object.assign({}, draft, data.draft, { pageKey: current.key });
-          destroyStudio();
-          renderPage();
-          showStatus('Finished. Commit to save all changes when you are ready.', 'ok');
-        } else {
-          showStatus((data && data.error) || 'Could not finish the page.', 'error');
+        if (!current) return;
+        els.doneBtn.disabled = true;
+        try {
+          await saveNow();
+          const res = await api('/api/admin/components/polish', {
+            method: 'POST',
+            body: JSON.stringify({ pageKey: current.key }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.ok && data.draft) {
+            draft = Object.assign({}, draft, data.draft, { pageKey: current.key });
+            renderPage();
+            await idbPut(record());
+            showStatus('Finished. Commit to save all changes when you are ready.', 'ok');
+          } else {
+            showStatus((data && data.error) || 'Could not finish the page.', 'error');
+          }
+        } finally {
+          els.doneBtn.disabled = false;
         }
       });
     }
-    try {
-      const cssRes = await fetch('assets/styles.css', { cache: 'no-store' });
-      if (cssRes.ok) siteCssText = await cssRes.text();
-    } catch (_e) { siteCssText = ''; }
 
-    document.querySelectorAll('#palette button').forEach((btn) => {
-      btn.addEventListener('dragstart', (event) => {
-        const kind = btn.getAttribute('data-block');
-        event.dataTransfer.setData('text/d6-new', NEW_BLOCKS[kind] || NEW_BLOCKS.p);
-        event.dataTransfer.setData('text/plain', kind || 'p');
+    const [siteCssRes, docCssRes] = await Promise.all([
+      fetch('assets/styles.css', { cache: 'no-store' }).catch(() => null),
+      fetch('assets/doc-styles.css', { cache: 'no-store' }).catch(() => null),
+    ]);
+    if (siteCssRes && siteCssRes.ok) siteCssText = await siteCssRes.text();
+    if (docCssRes && docCssRes.ok) docCssText = await docCssRes.text();
+
+    // Formatting commands
+    document.querySelectorAll('#format-bar [data-cmd]').forEach((btn) => {
+      btn.addEventListener('mousedown', (e) => e.preventDefault());
+      btn.addEventListener('click', () => {
+        const cmd = btn.getAttribute('data-cmd');
+        document.execCommand(cmd, false, null);
+        scheduleSave();
       });
     });
+
+    document.querySelectorAll('#format-bar .d6-swatch').forEach((btn) => {
+      btn.addEventListener('mousedown', (e) => e.preventDefault());
+      btn.addEventListener('click', () => {
+        const color = btn.getAttribute('data-color');
+        document.execCommand('foreColor', false, color);
+        scheduleSave();
+      });
+    });
+
+    // Block manipulation actions
+    els.moveUpBtn.addEventListener('click', () => {
+      if (!selectedBlock || selectedBlock.classList.contains('d6-doc-page')) return;
+      const prev = selectedBlock.previousElementSibling;
+      if (prev && !prev.classList.contains('logo-band')) {
+        prev.before(selectedBlock);
+        scheduleSave();
+      }
+    });
+
+    els.moveDownBtn.addEventListener('click', () => {
+      if (!selectedBlock || selectedBlock.classList.contains('d6-doc-page')) return;
+      const next = selectedBlock.nextElementSibling;
+      if (next && !next.classList.contains('d6-page-footer')) {
+        next.after(selectedBlock);
+        scheduleSave();
+      }
+    });
+
+    els.dupBlockBtn.addEventListener('click', () => {
+      if (!selectedBlock) return;
+      const clone = selectedBlock.cloneNode(true);
+      clone.removeAttribute('data-d6-selected');
+      selectedBlock.after(clone);
+      if (selectedBlock.classList.contains('d6-doc-page')) refreshPageNav();
+      selectBlock(clone, null);
+      scheduleSave();
+    });
+
+    els.delBlockBtn.addEventListener('click', () => {
+      if (!selectedBlock) return;
+      if (selectedBlock.classList.contains('d6-doc-page')) {
+        const allPages = pageRoot.querySelectorAll('.d6-doc-page');
+        if (allPages.length <= 1) return;
+      }
+      const nextFocus = selectedBlock.nextElementSibling || selectedBlock.previousElementSibling;
+      selectedBlock.remove();
+      refreshPageNav();
+      selectBlock(nextFocus, null);
+      scheduleSave();
+    });
+
+    els.replaceImgBtn.addEventListener('click', () => {
+      if (selectedImage) els.pieceFile.click();
+    });
+
+    els.pageSelect.addEventListener('change', () => {
+      if (!pageRoot) return;
+      const idx = Number(els.pageSelect.value) || 0;
+      const pages = pageRoot.querySelectorAll('.d6-doc-page');
+      if (pages[idx]) {
+        activePageEl = pages[idx];
+        pages[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    els.addPageBtn.addEventListener('click', addNewPage);
+    els.resetBtn.addEventListener('click', resetCurrentToDefault);
+
+    // Palette drag OR click to insert
+    document.querySelectorAll('#palette button[data-block]').forEach((btn) => {
+      const kind = btn.getAttribute('data-block');
+      btn.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('text/d6-new', kind);
+        event.dataTransfer.setData('text/plain', kind);
+      });
+      btn.addEventListener('click', () => {
+        insertSnippet(kind, null);
+      });
+    });
+
     els.pieceFile.addEventListener('change', async () => {
       const file = els.pieceFile.files && els.pieceFile.files[0];
       els.pieceFile.value = '';

@@ -1,5 +1,12 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-14 — Exact multi-page Letter layout for all policy and reference documents
+
+- Rebuilt all six documents (`frontend/content/docs/attendance.html`, `dress-code.html`, `sop.html`, `kompass.html`, `vendor.html`, `handbook.html`) as true 8.5in × 11in Letter sheets (`data-doc-version="2"`) with the shared stylesheet `frontend/assets/doc-styles.css` (mirrored to `backend/lib/templates/doc-styles.css` for Puppeteer `renderLetterPDF`).
+- Preserved the full visual design of each PDF: Retail Odyssey banner logo and navy hero blocks, Fred Meyer red hero blocks with embedded logo, 2-column stat and acceptable/not-acceptable comparison grids, warning/critical/exception callouts, numbered step badges, 5-step tardiness progression bars, SOP 4×2 supplies grid and 4 phase cards, vendor spill/ladder photo panels, Handbook cover art and Table of Contents, and per-page footers (`Page X of Y`).
+- Removed `.d6-block` wrapper injection from `frontend/js/components-editor.js` (which previously broke CSS grids and left lists/cards uneditable). Added the formatting/section toolbar (`Bold`, `Italic`, `Underline`, `List`, alignment, color swatches, `Up`/`Down`, `Duplicate`, `Delete`, `Replace Image`, `Reset to Default`, and page jumper + `+ Page`) and `DELETE /api/admin/components/draft/:pageKey`.
+- Bumped the IndexedDB draft store to `d6-component-drafts-v2` and cleared the stale unstyled `doc-*` draft from Railway Postgres.
+
 ## 2026-10-09 — The page is the editor
 
 - Removed the GrapesJS canvas layer. The document or hub page is drawn directly. Blocks on the left drag onto that page, the ⋮⋮ handle reorders what is already there, and the words are typed in place. Preview hides the handles.

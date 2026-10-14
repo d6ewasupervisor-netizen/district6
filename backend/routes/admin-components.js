@@ -25,6 +25,7 @@ import {
   DOCUMENTS,
   getDraft,
   saveDraft,
+  deleteDraft,
   upsertPublishedPage,
   insertAsset,
   getAssetById,
@@ -45,6 +46,22 @@ import { renderLetterPDF } from '../lib/receipt-renderer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RECEIPT_TEMPLATE_PATH = path.resolve(__dirname, '..', 'lib', 'templates', 'receipt.html');
+const DOC_STYLES_PATH = path.resolve(__dirname, '..', 'lib', 'templates', 'doc-styles.css');
+const LOGO_CANDIDATES = [
+  path.resolve(__dirname, '..', 'assets', 'logo.png'),
+  path.resolve(__dirname, '..', '..', 'frontend', 'assets', 'logo.png'),
+];
+
+const logoDataUrl = (() => {
+  for (const p of LOGO_CANDIDATES) {
+    try {
+      if (fs.existsSync(p)) {
+        return `data:image/png;base64,${fs.readFileSync(p).toString('base64')}`;
+      }
+    } catch { /* try next */ }
+  }
+  return '';
+})();
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -118,6 +135,18 @@ async function upsertDraftHandler(req, res) {
 
 router.put('/draft', upsertDraftHandler);
 router.post('/draft', upsertDraftHandler); // navigator.sendBeacon on pagehide
+
+router.delete('/draft/:pageKey', async (req, res) => {
+  const { pageKey } = req.params;
+  if (!isEditorKey(pageKey)) return res.status(400).json({ ok: false, error: 'Unknown page.' });
+  try {
+    await deleteDraft(req.adminEmail, pageKey);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[admin components] draft delete', err);
+    return res.status(500).json({ ok: false, error: 'Could not reset the draft.' });
+  }
+});
 
 // ── Uploads ──────────────────────────────────────────────────────────────────
 
@@ -270,14 +299,17 @@ function stripJsUrlsFromCss(css) {
 }
 
 function wrapDocumentHtml(html, css) {
+  let docStyles = '';
+  try {
+    docStyles = fs.readFileSync(DOC_STYLES_PATH, 'utf8');
+  } catch { /* fallback if missing */ }
+  const bodyHtml = logoDataUrl
+    ? String(html || '').replace(/(["'])assets\/logo\.png\1/g, `$1${logoDataUrl}$1`)
+    : String(html || '');
   return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: letter; margin: 0.7in; }
-    body { margin: 0; font-family: Calibri, Carlito, Arial, sans-serif; color: #1f2937; }
-    h2 { font-size: 22px; line-height: 1.25; margin: 0 0 10px; }
-    h3 { font-size: 16px; margin: 16px 0 6px; }
-    p { font-size: 12pt; line-height: 1.45; margin: 0 0 8px; }
-    ${css || ''}
-  </style></head><body>${html}</body></html>`;
+${docStyles}
+${css || ''}
+  </style></head><body>${bodyHtml}</body></html>`;
 }
 
 router.post('/commit', async (req, res) => {

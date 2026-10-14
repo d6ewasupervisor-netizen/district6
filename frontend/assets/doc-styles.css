@@ -1,0 +1,755 @@
+/*
+ * District 6 Document Stylesheet — shared 1:1 between the visual editor canvas
+ * and the headless Chromium (Puppeteer) Letter PDF renderer.
+ *
+ * Every `.d6-doc-page` represents one physical 8.5in × 11in US Letter sheet.
+ */
+
+@page {
+  size: Letter;
+  margin: 0;
+}
+
+.d6-doc-sheet,
+.d6-doc-sheet * {
+  box-sizing: border-box;
+}
+
+.d6-doc-sheet {
+  font-family: 'Carlito', 'Calibri', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.45;
+  color: #1f2937;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.d6-doc-page {
+  width: 8.5in;
+  min-height: 11in;
+  padding: 0.55in 0.6in 0.42in 0.6in;
+  background: #ffffff;
+  color: #1f2937;
+  margin: 0 auto 28px auto;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14), 0 1px 3px rgba(15, 23, 42, 0.08);
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  page-break-after: always;
+  break-after: page;
+}
+
+.d6-doc-page:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+@media print {
+  body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+  }
+  .d6-doc-page {
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+    width: 8.5in;
+    height: 11in;
+    min-height: 11in;
+  }
+}
+
+/* ── Top Logo Band (Retail Odyssey policies) ─────────────────────────────── */
+.d6-doc-page .logo-band {
+  background: #ffffff;
+  text-align: center;
+  padding: 0 0 10px 0;
+}
+.d6-doc-page .logo-band img {
+  width: 4.15in;
+  max-width: 100%;
+  height: auto;
+  max-height: 48px;
+  display: inline-block;
+  object-fit: contain;
+}
+
+/* ── Hero Banners ────────────────────────────────────────────────────────── */
+.d6-doc-page .hero {
+  background: #003a70;
+  color: #ffffff;
+  padding: 18px 22px 16px 22px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+.d6-doc-page .hero-title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px 0;
+}
+.d6-doc-page .hero h1 {
+  font-size: 22pt;
+  line-height: 1.15;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+  display: inline;
+}
+.d6-doc-page .hero h1.hero-lg {
+  font-size: 25pt;
+}
+.d6-doc-page .hero .edition-inline {
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 2.4px;
+  font-size: 8.5pt;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.d6-doc-page .hero .meta-line {
+  margin: 8px 0 0 0;
+  font-size: 9.8pt;
+  color: #b9d6ee;
+  border-top: 1px solid rgba(98, 181, 229, 0.45);
+  padding-top: 7px;
+}
+.d6-doc-page .hero .meta-line strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Red Fred Meyer / Kompass Hero */
+.d6-doc-page .hero.hero-red {
+  background: linear-gradient(135deg, #c8102e 0%, #8a0a1f 100%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 24px;
+}
+.d6-doc-page .hero.hero-red .text-block {
+  flex: 1;
+}
+.d6-doc-page .hero .eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 4px;
+}
+.d6-doc-page .hero.hero-red h1 {
+  display: block;
+  font-size: 21pt;
+  margin: 0 0 6px 0;
+}
+.d6-doc-page .hero.hero-red p {
+  margin: 0;
+  font-size: 10pt;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.96);
+}
+.d6-doc-page .hero .logo-wrap {
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.d6-doc-page .hero .logo-wrap img {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+
+/* ── Section Headings & Typography ───────────────────────────────────────── */
+.d6-doc-page h2 {
+  font-size: 15.5pt;
+  color: #003a70;
+  border-bottom: 2px solid #62b5e5;
+  padding-bottom: 4px;
+  margin: 14px 0 8px 0;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.d6-doc-page h2.h2-top {
+  margin-top: 0;
+}
+.d6-doc-page h2.h2-red {
+  color: #c8102e;
+  border-bottom-color: #c8102e;
+  font-size: 14.5pt;
+}
+.d6-doc-page h3 {
+  font-size: 10.5pt;
+  color: #003a70;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 12px 0 5px 0;
+  font-weight: 700;
+}
+.d6-doc-page h3.h3-dark {
+  color: #1f2937;
+  font-size: 9.8pt;
+}
+.d6-doc-page p {
+  margin: 0 0 8px 0;
+  font-size: 10.5pt;
+  line-height: 1.45;
+  color: #1f2937;
+}
+.d6-doc-page p.section-lead {
+  color: #495057;
+  font-size: 10.2pt;
+  margin: 0 0 9px 0;
+}
+
+/* ── Lists ───────────────────────────────────────────────────────────────── */
+.d6-doc-page ul {
+  margin: 4px 0 10px 0;
+  padding-left: 18px;
+}
+.d6-doc-page li {
+  margin-bottom: 4.5px;
+  font-size: 10.5pt;
+  line-height: 1.42;
+  color: #1f2937;
+}
+.d6-doc-page li strong {
+  color: #111827;
+}
+.d6-doc-page ul ul {
+  list-style-type: circle;
+  margin: 3px 0 4px 0;
+  padding-left: 18px;
+}
+
+/* ── Callout Boxes ───────────────────────────────────────────────────────── */
+.d6-doc-page .intro-box {
+  background: #f8fafb;
+  border-left: 4px solid #62b5e5;
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 10.2pt;
+  line-height: 1.45;
+}
+.d6-doc-page .callout {
+  background: #eaf4fb;
+  border-left: 4px solid #62b5e5;
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  margin: 10px 0;
+  font-size: 10.2pt;
+  line-height: 1.45;
+  color: #1f2937;
+}
+.d6-doc-page .callout-title {
+  font-size: 9.2pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: #1f2937;
+  margin: 0 0 4px 0;
+}
+.d6-doc-page .callout p {
+  margin: 0;
+  font-size: 10.2pt;
+}
+.d6-doc-page .callout.info strong {
+  color: #003a70;
+}
+.d6-doc-page .callout.warn {
+  background: #fff8e1;
+  border-left-color: #f59e0b;
+}
+.d6-doc-page .callout.warn strong {
+  color: #b45309;
+}
+.d6-doc-page .callout.danger {
+  background: #fef2f2;
+  border-left-color: #dc2626;
+}
+.d6-doc-page .callout.danger strong {
+  color: #b91c1c;
+}
+.d6-doc-page .callout.exception {
+  background: #f5f3ff;
+  border-left-color: #7c3aed;
+}
+.d6-doc-page .callout.exception strong {
+  color: #6d28d9;
+}
+
+/* ── Two-Column Grids & Stat Cards ───────────────────────────────────────── */
+.d6-doc-page .grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 8px 0 12px 0;
+}
+.d6-doc-page .info-card {
+  background: #f8fafb;
+  border: 1px solid #d8e3eb;
+  border-radius: 8px;
+  padding: 11px 14px;
+}
+.d6-doc-page .info-card .card-eyebrow {
+  font-size: 8.8pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: #003a70;
+  margin: 0 0 4px 0;
+}
+.d6-doc-page .info-card .stat-big {
+  font-size: 18pt;
+  font-weight: 700;
+  color: #003a70;
+  line-height: 1.15;
+  margin: 2px 0 3px 0;
+}
+.d6-doc-page .info-card .stat-sub {
+  font-size: 8.8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #768692;
+  margin: 0;
+}
+.d6-doc-page .info-card ul {
+  margin: 4px 0 0 0;
+  padding-left: 16px;
+}
+.d6-doc-page .info-card li {
+  font-size: 9.8pt;
+  margin-bottom: 3.5px;
+}
+
+/* ── Acceptable / Not Acceptable Boxes (Dress Code & Vendor) ─────────────── */
+.d6-doc-page .status-box {
+  border-radius: 8px;
+  padding: 11px 14px;
+  margin: 8px 0 10px 0;
+}
+.d6-doc-page .status-box.ok {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+.d6-doc-page .status-box.no {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+.d6-doc-page .status-box .status-header {
+  font-size: 8.8pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 6px 0;
+}
+.d6-doc-page .status-box.ok .status-header {
+  color: #047857;
+}
+.d6-doc-page .status-box.no .status-header {
+  color: #b91c1c;
+}
+.d6-doc-page .status-box .sub-band {
+  background: #fecaca;
+  color: #991b1b;
+  font-size: 8.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin: 6px 0 6px 0;
+}
+.d6-doc-page .status-box ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.d6-doc-page .status-box li {
+  font-size: 9.8pt;
+  margin-bottom: 3.5px;
+}
+.d6-doc-page .cols-2-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+/* ── Step Rows (Attendance & Kompass) ────────────────────────────────────── */
+.d6-doc-page .step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 7px 0;
+}
+.d6-doc-page .step-badge {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #003a70;
+  color: #ffffff;
+  font-size: 10pt;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.d6-doc-page .step-badge.warn { background: #f59e0b; }
+.d6-doc-page .step-badge.danger { background: #7f1d1d; }
+.d6-doc-page .step-badge.red { background: #c8102e; width: 22px; height: 22px; }
+.d6-doc-page .step-body {
+  flex: 1;
+}
+.d6-doc-page .step-title {
+  font-size: 10.3pt;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 1px 0;
+}
+.d6-doc-page .step-detail {
+  font-size: 9.6pt;
+  color: #4b5563;
+  margin: 0;
+}
+
+/* ── 5-Step Tardiness Progression Bars (Attendance p3) ───────────────────── */
+.d6-doc-page .progression-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 8px 0 12px 0;
+}
+.d6-doc-page .prog-row {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #d8e3eb;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.d6-doc-page .prog-row.prog-5 {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+.d6-doc-page .prog-tab {
+  width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px;
+  color: #ffffff;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.d6-doc-page .prog-tab .prog-num {
+  font-size: 10.5pt;
+  line-height: 1;
+}
+.d6-doc-page .prog-tab .prog-ord {
+  font-size: 6.5pt;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+.d6-doc-page .prog-1 .prog-tab { background: #62b5e5; }
+.d6-doc-page .prog-2 .prog-tab { background: #f59e0b; }
+.d6-doc-page .prog-3 .prog-tab { background: #ea580c; }
+.d6-doc-page .prog-4 .prog-tab { background: #dc2626; }
+.d6-doc-page .prog-5 .prog-tab { background: #7f1d1d; }
+.d6-doc-page .prog-label {
+  padding: 8px 14px;
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #111827;
+  display: flex;
+  align-items: center;
+}
+.d6-doc-page .prog-5 .prog-label {
+  color: #7f1d1d;
+}
+
+/* ── SOP Supplies Grid & Phase Cards ─────────────────────────────────────── */
+.d6-doc-page .supplies-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 8px 0 14px 0;
+}
+.d6-doc-page .supply-card {
+  background: #f8fafb;
+  border: 1px solid #d8e3eb;
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.d6-doc-page .supply-card.optional {
+  background: #fafafa;
+  border-style: dashed;
+}
+.d6-doc-page .supply-icon {
+  font-size: 18pt;
+  line-height: 1.1;
+  color: #62b5e5;
+  margin-bottom: 4px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.d6-doc-page .supply-icon img {
+  height: 24px;
+  width: auto;
+}
+.d6-doc-page .supply-name {
+  font-size: 10pt;
+  font-weight: 700;
+  color: #003a70;
+}
+.d6-doc-page .supply-note {
+  font-size: 8.2pt;
+  font-style: italic;
+  color: #768692;
+  margin-top: 2px;
+}
+
+.d6-doc-page .phase-card {
+  background: #ffffff;
+  border: 1px solid #d8e3eb;
+  border-left: 4px solid #62b5e5;
+  border-radius: 6px;
+  padding: 9px 14px;
+  margin: 8px 0;
+}
+.d6-doc-page .phase-card.phase-2 { border-left-color: #003a70; }
+.d6-doc-page .phase-card.phase-3 { border-left-color: #f59e0b; }
+.d6-doc-page .phase-card.phase-4 { border-left-color: #768692; }
+.d6-doc-page .phase-pill {
+  display: inline-block;
+  font-size: 7.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #eaf4fb;
+  color: #003a70;
+  margin-bottom: 4px;
+}
+.d6-doc-page .phase-card.phase-2 .phase-pill { background: #003a70; color: #ffffff; }
+.d6-doc-page .phase-card.phase-3 .phase-pill { background: #fef3c7; color: #92400e; }
+.d6-doc-page .phase-card.phase-4 .phase-pill { background: #f1f3f5; color: #495057; }
+.d6-doc-page .phase-title {
+  font-size: 11.5pt;
+  font-weight: 700;
+  color: #003a70;
+  margin: 0 0 4px 0;
+}
+.d6-doc-page .phase-card ul {
+  margin: 2px 0 0 0;
+  padding-left: 16px;
+}
+.d6-doc-page .phase-card li {
+  font-size: 9.8pt;
+  margin-bottom: 2.5px;
+}
+
+/* ── Kompass & Vendor Cards / Image Panels ───────────────────────────────── */
+.d6-doc-page .glance-card {
+  border-radius: 8px;
+  padding: 11px 14px;
+}
+.d6-doc-page .glance-card.store { background: #eff6ff; border: 1px solid #bfdbfe; }
+.d6-doc-page .glance-card.team { background: #ecfdf5; border: 1px solid #a7f3d0; }
+.d6-doc-page .glance-card .label {
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  font-size: 8.5pt;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.d6-doc-page .glance-card.store .label { color: #1d4ed8; }
+.d6-doc-page .glance-card.team .label { color: #047857; }
+.d6-doc-page .glance-card .role {
+  font-size: 11.5pt;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 3px;
+}
+.d6-doc-page .glance-card p {
+  margin: 0;
+  font-size: 9.8pt;
+}
+
+.d6-doc-page .reset-card {
+  border-radius: 8px;
+  padding: 11px 14px;
+  background: #fafaf9;
+  border: 1px solid #e7e5e4;
+}
+.d6-doc-page .reset-tag {
+  display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  font-size: 7.8pt;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-bottom: 5px;
+}
+.d6-doc-page .reset-card.full .reset-tag { background: #fee2e2; color: #991b1b; }
+.d6-doc-page .reset-card.partial .reset-tag { background: #dbeafe; color: #1e40af; }
+.d6-doc-page .reset-card h4 {
+  margin: 0 0 5px 0;
+  font-size: 11.5pt;
+  color: #111827;
+  font-weight: 700;
+}
+.d6-doc-page .reset-card li {
+  font-size: 9.4pt;
+  margin-bottom: 3.5px;
+}
+
+.d6-doc-page .image-panel {
+  display: flex;
+  gap: 14px;
+  background: #fafaf9;
+  border: 1px solid #e7e5e4;
+  border-radius: 9px;
+  padding: 12px 14px;
+  margin: 8px 0 12px 0;
+  align-items: center;
+}
+.d6-doc-page .image-panel.warn { background: #fef9e7; border-color: #fde68a; }
+.d6-doc-page .image-panel.danger { background: #fef2f2; border-color: #fecaca; }
+.d6-doc-page .image-panel .images { display: flex; gap: 10px; flex-shrink: 0; }
+.d6-doc-page .image-panel .image-frame {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 5px;
+  text-align: center;
+}
+.d6-doc-page .image-panel.danger .image-frame { border-color: #fca5a5; }
+.d6-doc-page .image-panel img { display: block; height: 78px; width: auto; margin: 0 auto; }
+.d6-doc-page .image-panel .caption {
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #6b7280;
+  margin-top: 4px;
+  font-weight: 700;
+}
+.d6-doc-page .image-panel.danger .caption { color: #b91c1c; }
+.d6-doc-page .image-panel .panel-text { flex: 1; font-size: 9.8pt; line-height: 1.45; }
+.d6-doc-page .image-panel .panel-title {
+  font-weight: 700;
+  font-size: 11pt;
+  margin-bottom: 3px;
+  color: #111827;
+}
+.d6-doc-page .image-panel.warn .panel-title { color: #92400e; }
+.d6-doc-page .image-panel.danger .panel-title { color: #991b1b; }
+
+/* ── References Banner & Footer Strip ────────────────────────────────────── */
+.d6-doc-page .references-box {
+  background: #003a70;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 10px;
+}
+.d6-doc-page .references-box .ref-label {
+  font-size: 8.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #ffffff;
+  margin: 0 0 3px 0;
+}
+.d6-doc-page .references-box .ref-links {
+  font-size: 9.8pt;
+  color: #ffffff;
+  margin: 0;
+}
+.d6-doc-page .references-box .ref-links strong {
+  color: #62b5e5;
+}
+
+.d6-doc-page .footer-strip {
+  margin-top: 14px;
+  background: #1f2937;
+  color: #ffffff;
+  padding: 11px 15px;
+  border-radius: 8px;
+  font-size: 9.8pt;
+  line-height: 1.45;
+}
+.d6-doc-page .footer-strip strong {
+  color: #fca5a5;
+}
+.d6-doc-page .doc-updated-meta {
+  font-size: 8.5pt;
+  color: #6b7280;
+  text-align: right;
+  margin-top: 6px;
+}
+
+/* ── Page Footer (Bottom of every Letter sheet) ──────────────────────────── */
+.d6-doc-page .d6-page-footer {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 8pt;
+  color: #768692;
+}
+
+/* ── Handbook Specifics ──────────────────────────────────────────────────── */
+.d6-doc-page .hb-h1 {
+  font-size: 15pt;
+  font-weight: 700;
+  color: #0563c1;
+  text-align: center;
+  text-transform: uppercase;
+  border-bottom: none;
+  margin: 0 0 12px 0;
+}
+.d6-doc-page .hb-h2 {
+  font-size: 13pt;
+  font-weight: 700;
+  color: #0563c1;
+  border-bottom: none;
+  margin: 12px 0 6px 0;
+}
+.d6-doc-page .hb-toc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 10.2pt;
+  margin: 3px 0;
+  border-bottom: 1px dotted #9ca3af;
+}
+.d6-doc-page .hb-toc-row.sub {
+  margin-left: 24px;
+}
+.d6-doc-page .hb-toc-row span:first-child {
+  background: #ffffff;
+  padding-right: 6px;
+}
+.d6-doc-page .hb-toc-row span:last-child {
+  background: #ffffff;
+  padding-left: 6px;
+  font-weight: 600;
+}

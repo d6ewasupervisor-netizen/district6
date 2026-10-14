@@ -86,6 +86,14 @@ export async function saveDraft(adminEmail, draft) {
   return rows[0];
 }
 
+export async function deleteDraft(adminEmail, pageKey) {
+  const { rowCount } = await query(
+    `DELETE FROM component_drafts WHERE admin_email = $1 AND page_key = $2`,
+    [adminEmail, pageKey],
+  );
+  return rowCount > 0;
+}
+
 // ── Published pages ──────────────────────────────────────────────────────────
 
 export async function getPublishedPage(pageKey) {

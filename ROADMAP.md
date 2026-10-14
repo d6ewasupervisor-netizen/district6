@@ -3,7 +3,7 @@
 ## Next
 
 - The 25 direct-report numbers are already on file. A sign-in code does not wait on JOIN. STOP still blocks a number until they text START.
-- On the live site, open Update Components, open Attendance, and confirm the policy text is on the page and can be dragged. Commit should replace `frontend/docs/attendance.pdf`.
+- Open Update Components on the live site and verify each policy and reference document renders its full Letter pages, headers, callouts, 2-column grids, and footers, and that **Commit to save all changes** regenerates the matching PDF in `frontend/docs/`.
 
 ## Later
 
