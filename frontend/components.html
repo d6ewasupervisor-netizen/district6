@@ -278,6 +278,50 @@
       background: #eaf4fb;
       border-color: var(--sky);
     }
+    .asset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .asset-grid button {
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.2;
+      font-weight: 600;
+      padding: 6px 4px 5px;
+      min-height: 0;
+    }
+    .asset-grid button img {
+      display: block;
+      width: 100%;
+      height: 48px;
+      object-fit: contain;
+      margin: 0 0 4px;
+      pointer-events: none;
+      background-color: #fff;
+      background-image:
+        linear-gradient(45deg, #e6eef5 25%, transparent 25%),
+        linear-gradient(-45deg, #e6eef5 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e6eef5 75%),
+        linear-gradient(-45deg, transparent 75%, #e6eef5 75%);
+      background-size: 10px 10px;
+      background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+    }
+    #pal-tip {
+      display: none;
+      position: fixed;
+      z-index: 40;
+      max-width: 280px;
+      padding: 8px 10px;
+      background: #003a70;
+      color: #fff;
+      font-size: 13px;
+      line-height: 1.35;
+      border-radius: 8px;
+      box-shadow: 0 8px 20px rgba(0, 26, 51, 0.22);
+      pointer-events: none;
+    }
+    #pal-tip.on { display: block; }
     #page-host {
       flex: 1;
       min-width: 0;
@@ -373,28 +417,34 @@
     <div id="builder">
       <aside id="palette">
         <div class="pal-group-label">Headers &amp; Text</div>
-        <button type="button" draggable="true" data-block="hero">Hero Banner</button>
-        <button type="button" draggable="true" data-block="h2">Section Heading</button>
-        <button type="button" draggable="true" data-block="h3">Subheading</button>
-        <button type="button" draggable="true" data-block="p">Paragraph</button>
-        <button type="button" draggable="true" data-block="ul">Bullet List</button>
+        <button type="button" draggable="true" data-block="hero" data-tip="The title bar at the top of a policy. It carries the document name, the edition, and the date it takes effect.">Hero Banner</button>
+        <button type="button" draggable="true" data-block="h2" data-tip="A main section title. Use it when you start a new topic, such as Attendance or What to bring.">Section Heading</button>
+        <button type="button" draggable="true" data-block="h3" data-tip="A smaller title under a section, for a point that needs its own label without starting a whole new section.">Subheading</button>
+        <button type="button" draggable="true" data-block="p" data-tip="A normal paragraph. Click it and type the wording you want on the page.">Paragraph</button>
+        <button type="button" draggable="true" data-block="ul" data-tip="A short list, one idea per line. Useful for expectations, supplies, or rules someone should be able to scan.">Bullet List</button>
 
         <div class="pal-group-label">Callouts &amp; Cards</div>
-        <button type="button" draggable="true" data-block="callout-info">Info Callout (Blue)</button>
-        <button type="button" draggable="true" data-block="callout-warn">Warning Callout (Yellow)</button>
-        <button type="button" draggable="true" data-block="callout-danger">Critical Rule (Red)</button>
-        <button type="button" draggable="true" data-block="grid-2">2-Column Info Cards</button>
-        <button type="button" draggable="true" data-block="ok-no-grid">Acceptable / Not Allowed</button>
-        <button type="button" draggable="true" data-block="step-row">Numbered Step</button>
-        <button type="button" draggable="true" data-block="phase-card">Phase Card</button>
-        <button type="button" draggable="true" data-block="references">References Box</button>
-        <button type="button" draggable="true" data-block="img">Image</button>
+        <button type="button" draggable="true" data-block="callout-info" data-tip="A blue box that sets a reminder apart from the regular text so it is easy to find.">Info Callout (Blue)</button>
+        <button type="button" draggable="true" data-block="callout-warn" data-tip="A yellow box for a requirement people should notice before they keep reading.">Warning Callout (Yellow)</button>
+        <button type="button" draggable="true" data-block="callout-danger" data-tip="A red box for a rule that cannot be missed, such as who to call when something goes wrong.">Critical Rule (Red)</button>
+        <button type="button" draggable="true" data-block="grid-2" data-tip="Two cards side by side. Use this when a topic splits cleanly into two groups.">2-Column Info Cards</button>
+        <button type="button" draggable="true" data-block="ok-no-grid" data-tip="A green list and a red list next to each other: what is approved, and what is not.">Acceptable / Not Allowed</button>
+        <button type="button" draggable="true" data-block="step-row" data-tip="One step in a sequence, with a number and a short explanation of what happens.">Numbered Step</button>
+        <button type="button" draggable="true" data-block="phase-card" data-tip="A card for one phase of a process, with a phase label and the actions that belong in it.">Phase Card</button>
+        <button type="button" draggable="true" data-block="references" data-tip="A strip that names the other documents this page points people to.">References Box</button>
+        <button type="button" draggable="true" data-block="img" data-tip="Places a picture on the page. Select it, then pick a brand graphic, or use Replace Image for a photo from your computer.">Image</button>
+
+        <div class="pal-group-label">Brand marks</div>
+        <div id="brand-assets" class="asset-grid"></div>
+        <div class="pal-group-label">Supply graphics</div>
+        <div id="supply-assets" class="asset-grid"></div>
       </aside>
       <div id="page-host"></div>
     </div>
 
     <input id="piece-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" />
   </div>
+  <div id="pal-tip" role="tooltip"></div>
 
   <script src="js/config.js"></script>
   <script src="js/components-editor.js"></script>

@@ -1,5 +1,12 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-14 — Palette explanations and brand graphics
+
+- Hovering a block in Update Components shows a short explanation of what that block is for (hero, headings, callouts, cards, steps, image).
+- Brand marks and supply graphics from `frontend/assets/Page Assets` are in the palette. Click or drag places one on the page. Clicking a graphic while a picture is selected replaces that picture.
+- Supply icons had a white oval behind the object. That oval is gone. The object’s own white (paper towel, bottle label, clipboard paper) stays. Brand marks were already clear.
+- Letter PDF generation embeds those files from disk, including the copy under `backend/assets/Page Assets`, because Chromium renders the PDF with no site address to load them from.
+
 ## 2026-10-14 — Exact multi-page Letter layout for all policy and reference documents
 
 - Rebuilt all six documents (`frontend/content/docs/attendance.html`, `dress-code.html`, `sop.html`, `kompass.html`, `vendor.html`, `handbook.html`) as true 8.5in × 11in Letter sheets (`data-doc-version="2"`) with the shared stylesheet `frontend/assets/doc-styles.css` (mirrored to `backend/lib/templates/doc-styles.css` for Puppeteer `renderLetterPDF`).

@@ -753,3 +753,20 @@
   padding-left: 6px;
   font-weight: 600;
 }
+
+/* Graphics dropped from the editor palette. Background stays clear in print. */
+.d6-doc-page .d6-graphic {
+  margin: 8px 0 12px;
+  text-align: center;
+  background: transparent;
+}
+.d6-doc-page .d6-graphic img {
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: transparent;
+  vertical-align: middle;
+}
+.d6-doc-page .d6-graphic-logo img { max-height: 0.72in; }
+.d6-doc-page .d6-graphic-icon img { max-height: 1.05in; }

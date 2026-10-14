@@ -43,26 +43,11 @@ import {
 } from '../lib/claude-components.js';
 import { commitContentFiles, isGithubConfigured } from '../lib/github-content-commit.js';
 import { renderLetterPDF } from '../lib/receipt-renderer.js';
+import { inlinePageAssetUrls } from '../lib/inline-page-assets.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RECEIPT_TEMPLATE_PATH = path.resolve(__dirname, '..', 'lib', 'templates', 'receipt.html');
 const DOC_STYLES_PATH = path.resolve(__dirname, '..', 'lib', 'templates', 'doc-styles.css');
-const LOGO_CANDIDATES = [
-  path.resolve(__dirname, '..', 'assets', 'logo.png'),
-  path.resolve(__dirname, '..', '..', 'frontend', 'assets', 'logo.png'),
-];
-
-const logoDataUrl = (() => {
-  for (const p of LOGO_CANDIDATES) {
-    try {
-      if (fs.existsSync(p)) {
-        return `data:image/png;base64,${fs.readFileSync(p).toString('base64')}`;
-      }
-    } catch { /* try next */ }
-  }
-  return '';
-})();
-
 const router = express.Router();
 router.use(requireAdmin);
 
@@ -303,9 +288,7 @@ function wrapDocumentHtml(html, css) {
   try {
     docStyles = fs.readFileSync(DOC_STYLES_PATH, 'utf8');
   } catch { /* fallback if missing */ }
-  const bodyHtml = logoDataUrl
-    ? String(html || '').replace(/(["'])assets\/logo\.png\1/g, `$1${logoDataUrl}$1`)
-    : String(html || '');
+  const bodyHtml = inlinePageAssetUrls(String(html || ''));
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 ${docStyles}
 ${css || ''}

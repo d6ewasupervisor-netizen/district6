@@ -52,6 +52,10 @@
     describeInput: document.getElementById('describe-input'),
     describeSendBtn: document.getElementById('describe-send-btn'),
     pageHost: document.getElementById('page-host'),
+    palette: document.getElementById('palette'),
+    palTip: document.getElementById('pal-tip'),
+    brandAssets: document.getElementById('brand-assets'),
+    supplyAssets: document.getElementById('supply-assets'),
     pieceFile: document.getElementById('piece-file'),
     moveUpBtn: document.getElementById('move-up-btn'),
     moveDownBtn: document.getElementById('move-down-btn'),
@@ -346,8 +350,275 @@
         '<div class="ref-label">References</div>' +
         '<p class="ref-links"><strong>Teammate Handbook</strong> &nbsp;&middot;&nbsp; <strong>Fred Meyer Vendor Policies</strong> &nbsp;&middot;&nbsp; <strong>Kompass Program Responsibilities</strong></p>' +
       '</div>',
-    img: '<div style="margin: 10px 0; text-align: center;"><img src="assets/logo.png" alt="Image" style="max-width: 100%; height: auto;" /></div>',
+    img:
+      '<div class="d6-graphic d6-graphic-logo">' +
+        '<img src="assets/logo.png" alt="Image" style="max-width:100%;max-height:0.72in;width:auto;height:auto;object-fit:contain;background:transparent;" />' +
+      '</div>',
   };
+
+  function assetUrl(relPath) {
+    return 'assets/' + String(relPath).split('/').map((part) => encodeURIComponent(part)).join('/');
+  }
+
+  const PAGE_GRAPHICS = [
+    {
+      mount: 'brand',
+      kind: 'logo',
+      file: 'Page Assets/Brand Assets/advantage logo.png',
+      label: 'Advantage',
+      alt: 'Advantage logo',
+      tip: 'The Advantage mark. The background is clear, so it sits on a white page or on a color bar.',
+    },
+    {
+      mount: 'brand',
+      kind: 'logo',
+      file: 'Page Assets/Brand Assets/fred meyer logo long.png',
+      label: 'Fred Meyer',
+      alt: 'Fred Meyer logo',
+      tip: 'The Fred Meyer wordmark in red. The background is clear.',
+    },
+    {
+      mount: 'brand',
+      kind: 'logo',
+      file: 'Page Assets/Brand Assets/fred meyer logo stacked.png',
+      label: 'Fred Meyer stacked',
+      alt: 'Fred Meyer stacked logo',
+      tip: 'The Fred Meyer mark stacked on two lines. The background is clear.',
+    },
+    {
+      mount: 'brand',
+      kind: 'logo',
+      file: 'Page Assets/Brand Assets/fred meyer shopping cart logo.png',
+      label: 'Fred Meyer cart',
+      alt: 'Fred Meyer shopping cart',
+      tip: 'The small Fred Meyer shopping-cart mark. The background is clear.',
+    },
+    {
+      mount: 'brand',
+      kind: 'logo',
+      file: 'Page Assets/Brand Assets/retail odyssey logo stacked.png',
+      label: 'Odyssey stacked',
+      alt: 'The Retail Odyssey Company logo',
+      tip: 'The full Retail Odyssey mark, with the compass and the company name. It reads on a white page.',
+    },
+    {
+      mount: 'brand',
+      kind: 'logo',
+      file: 'Page Assets/Brand Assets/retail odyssey new logo.png',
+      label: 'RO monogram',
+      alt: 'Retail Odyssey monogram',
+      tip: 'The white RO monogram. Put it on a navy or dark bar. On a white page the letters will not show.',
+    },
+    {
+      mount: 'brand',
+      kind: 'logo',
+      file: 'Page Assets/Brand Assets/sas retail services logo.png',
+      label: 'SAS',
+      alt: 'SAS Retail Services logo',
+      tip: 'The SAS Retail Services wordmark. The background is clear, and it reads on a white page.',
+    },
+    {
+      mount: 'brand',
+      kind: 'logo',
+      file: 'Page Assets/Brand Assets/the retail odyssey long logo.png',
+      label: 'Odyssey wordmark',
+      alt: 'The Retail Odyssey wordmark',
+      tip: 'The long Retail Odyssey wordmark. The background is clear, and it reads on a white page.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_clipboard.png',
+      label: 'Clipboard',
+      alt: 'Clipboard',
+      tip: 'A clipboard with a clear background. Useful in a supplies list or next to a short note.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_gloves.png',
+      label: 'Gloves',
+      alt: 'Work gloves',
+      tip: 'A pair of work gloves with a clear background.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_highlighter.png',
+      label: 'Highlighter',
+      alt: 'Highlighter',
+      tip: 'A highlighter with a clear background.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_paper_towels.png',
+      label: 'Paper towels',
+      alt: 'Paper towels',
+      tip: 'A roll of paper towels with a clear background. The white of the roll itself stays.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_pen.png',
+      label: 'Pen',
+      alt: 'Pen',
+      tip: 'A pen with a clear background.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_screwdriver.png',
+      label: 'Screwdriver',
+      alt: 'Screwdriver',
+      tip: 'A screwdriver with a clear background.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_spray_cleaner.png',
+      label: 'Spray cleaner',
+      alt: 'Spray cleaner',
+      tip: 'A spray bottle with a clear background.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_step_stool.png',
+      label: 'Step stool',
+      alt: 'Step stool',
+      tip: 'A step stool with a clear background.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_tablet.png',
+      label: 'Tablet',
+      alt: 'Tablet',
+      tip: 'A tablet with a clear background.',
+    },
+    {
+      mount: 'supply',
+      kind: 'icon',
+      file: 'Page Assets/retailer_asset_tape_measure.png',
+      label: 'Tape measure',
+      alt: 'Tape measure',
+      tip: 'A tape measure with a clear background.',
+    },
+  ];
+
+  function graphicHtml(item) {
+    const maxH = item.kind === 'icon' ? '1.05in' : '0.72in';
+    const klass = item.kind === 'icon' ? 'd6-graphic d6-graphic-icon' : 'd6-graphic d6-graphic-logo';
+    return (
+      '<div class="' + klass + '">' +
+        '<img src="' + item.src + '" alt="' + item.alt + '" style="max-width:100%;max-height:' + maxH + ';width:auto;height:auto;object-fit:contain;background:transparent;" />' +
+      '</div>'
+    );
+  }
+
+  function insertGraphic(item, beforeEl) {
+    const holder = document.createElement('div');
+    holder.innerHTML = graphicHtml(item);
+    const newEl = holder.firstElementChild;
+    if (!newEl || !pageRoot) return;
+    if (beforeEl && beforeEl.parentNode) {
+      beforeEl.before(newEl);
+    } else if (selectedBlock && selectedBlock.parentNode && !selectedBlock.classList.contains('d6-doc-page')) {
+      selectedBlock.after(newEl);
+    } else {
+      const targetPage =
+        activePageEl ||
+        (pageRoot.querySelector && pageRoot.querySelector('.d6-doc-page')) ||
+        (pageRoot.querySelector && pageRoot.querySelector('.d6-receipt-wrap')) ||
+        pageRoot;
+      const footer = targetPage.querySelector && targetPage.querySelector(':scope > .d6-page-footer');
+      if (footer) footer.before(newEl);
+      else targetPage.appendChild(newEl);
+    }
+    const img = newEl.querySelector('img');
+    selectBlock(newEl, img);
+    newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    scheduleSave();
+  }
+
+  function placePaletteTip(btn) {
+    const text = btn.getAttribute('data-tip');
+    if (!text || !els.palTip) return;
+    const tip = els.palTip;
+    tip.textContent = text;
+    tip.classList.add('on');
+    const rect = btn.getBoundingClientRect();
+    const gap = 8;
+    let left = rect.right + gap;
+    tip.style.left = left + 'px';
+    tip.style.top = '0px';
+    const tw = tip.offsetWidth;
+    const th = tip.offsetHeight;
+    if (left + tw > window.innerWidth - 8) left = Math.max(8, rect.left - tw - gap);
+    let top = Math.max(8, rect.top);
+    if (top + th > window.innerHeight - 8) top = Math.max(8, window.innerHeight - th - 8);
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  }
+
+  function hidePaletteTip() {
+    if (els.palTip) els.palTip.classList.remove('on');
+  }
+
+  function mountAssetButton(grid, item) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.draggable = true;
+    btn.setAttribute('data-src', item.src);
+    btn.setAttribute('data-alt', item.alt);
+    btn.setAttribute('data-kind', item.kind);
+    btn.setAttribute('data-tip', item.tip);
+    const img = document.createElement('img');
+    img.src = item.src;
+    img.alt = '';
+    btn.appendChild(img);
+    btn.appendChild(document.createTextNode(item.label));
+    btn.addEventListener('dragstart', (event) => {
+      event.dataTransfer.setData('text/d6-src', item.src);
+      event.dataTransfer.setData('text/d6-alt', item.alt);
+      event.dataTransfer.setData('text/d6-kind', item.kind);
+      event.dataTransfer.setData('text/plain', item.label);
+    });
+    btn.addEventListener('click', () => {
+      if (selectedImage) {
+        selectedImage.setAttribute('src', item.src);
+        selectedImage.setAttribute('alt', item.alt);
+        scheduleSave();
+        return;
+      }
+      insertGraphic(item, null);
+    });
+    grid.appendChild(btn);
+  }
+
+  function mountAssetPalette() {
+    if (!els.brandAssets || !els.supplyAssets) return;
+    PAGE_GRAPHICS.forEach((item) => {
+      item.src = assetUrl(item.file);
+      const grid = item.mount === 'supply' ? els.supplyAssets : els.brandAssets;
+      mountAssetButton(grid, item);
+    });
+    if (!els.palette) return;
+    els.palette.addEventListener('mouseover', (event) => {
+      const btn = event.target.closest && event.target.closest('button[data-tip]');
+      if (!btn || !els.palette.contains(btn)) return;
+      placePaletteTip(btn);
+    });
+    els.palette.addEventListener('mouseout', (event) => {
+      const btn = event.target.closest && event.target.closest('button[data-tip]');
+      if (!btn) return;
+      const next = event.relatedTarget;
+      if (next && btn.contains(next)) return;
+      hidePaletteTip();
+    });
+    els.palette.addEventListener('scroll', hidePaletteTip);
+  }
 
   const SHADOW_EDITOR_CSS = [
     ':host { display: block; }',
@@ -574,12 +845,19 @@
       if (previewOn) return;
       event.preventDefault();
       pageRoot.querySelectorAll('[data-d6-drop]').forEach((el) => el.removeAttribute('data-d6-drop'));
-      const blockKey = event.dataTransfer.getData('text/d6-new');
-      if (blockKey) {
-        const hit = findSelectableBlock(event.target);
-        const before = hit && !hit.classList.contains('d6-doc-page') ? hit : null;
-        insertSnippet(blockKey, before);
+      const hit = findSelectableBlock(event.target);
+      const before = hit && !hit.classList.contains('d6-doc-page') ? hit : null;
+      const graphicSrc = event.dataTransfer.getData('text/d6-src');
+      if (graphicSrc) {
+        insertGraphic({
+          src: graphicSrc,
+          alt: event.dataTransfer.getData('text/d6-alt') || 'Graphic',
+          kind: event.dataTransfer.getData('text/d6-kind') === 'icon' ? 'icon' : 'logo',
+        }, before);
+        return;
       }
+      const blockKey = event.dataTransfer.getData('text/d6-new');
+      if (blockKey) insertSnippet(blockKey, before);
     });
   }
 
@@ -878,6 +1156,8 @@
 
     els.addPageBtn.addEventListener('click', addNewPage);
     els.resetBtn.addEventListener('click', resetCurrentToDefault);
+
+    mountAssetPalette();
 
     // Palette drag OR click to insert
     document.querySelectorAll('#palette button[data-block]').forEach((btn) => {
