@@ -1,5 +1,9 @@
+import { createRequire } from 'node:module';
 import { Resend } from 'resend';
 import { reportResendPayload } from './email-outbox-ingest.js';
+
+const require = createRequire(import.meta.url);
+const { toRelayPayload } = require('./email-relay.js');
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error('RESEND_API_KEY is required');
@@ -31,10 +35,19 @@ function stampReplyTo(payload, opts) {
 }
 
 async function sendTracked(sourceType, payload, extra = {}) {
-  const result = await resend.emails.send(payload);
+  const relay = toRelayPayload(payload, { tool: process.env.EMAIL_RELAY_TOOL || 'district6' });
+  const result = await resend.emails.send(relay.payload);
   reportResendPayload(sourceType, payload, result, {
     resendAllowed: !String(sourceType).includes('auth') && !String(sourceType).includes('link'),
     ...extra,
+    metadata: {
+      ...(extra.metadata || {}),
+      relay: {
+        relayed: relay.relayed,
+        reason: relay.reason,
+        envelopeId: relay.envelope ? relay.envelope.id : null,
+      },
+    },
   }).catch(() => {});
   return result;
 }
