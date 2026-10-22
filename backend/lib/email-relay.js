@@ -93,11 +93,17 @@ function shouldRelay(payload) {
   return shouldRelayReason(payload) === 'relayed';
 }
 
-function firstReplyTo(value) {
+function firstReplyTo(value, ownAddress) {
   const list = toList(value);
-  const inbox = relayInbox().toLowerCase();
+  const inbox = bareAddress(ownAddress || relayInbox());
   const drop = dropReplyToSet();
   return list.find((a) => a !== inbox && !isBypassed(a, drop)) || '';
+}
+
+/** Work address to send as, if the acting user runs through a shared connection. */
+function sendAsFor(senderEmail) {
+  const sender = bareAddress(senderEmail);
+  return sender && envList('EMAIL_RELAY_SENDERS').includes(sender) ? sender : '';
 }
 
 function rewriteCidImages(html, attachments, inlineImageUrls) {
@@ -126,15 +132,17 @@ function rewriteCidImages(html, attachments, inlineImageUrls) {
   return { html: out, attachments: kept };
 }
 
-function buildEnvelope({ to, cc, bcc, subject, replyTo, tool, fromLabel }) {
+function buildEnvelope({ to, cc, bcc, subject, replyTo, tool, fromLabel, senderEmail }) {
+  const sendAs = sendAsFor(senderEmail);
   return {
     to: toList(to),
     cc: toList(cc),
     bcc: toList(bcc),
     subject: String(subject || ''),
-    replyTo: firstReplyTo(replyTo),
+    replyTo: firstReplyTo(replyTo, sendAs || relayInbox()),
     tool: String(tool || process.env.EMAIL_RELAY_TOOL || 'unknown'),
     fromLabel: String(fromLabel || ''),
+    sendAs,
     id: randomUUID(),
   };
 }
@@ -150,7 +158,7 @@ function envelopeBlock(envelope) {
  * into the relay-ingest shape.
  * Returns { payload, relayed, reason, envelope }.
  */
-function toRelayPayload(payload, { tool, inlineImageUrls } = {}) {
+function toRelayPayload(payload, { tool, inlineImageUrls, senderEmail } = {}) {
   const reason = payload ? shouldRelayReason(payload) : 'no-recipients';
   if (reason !== 'relayed') {
     return { payload, relayed: false, reason, envelope: null };
@@ -163,6 +171,7 @@ function toRelayPayload(payload, { tool, inlineImageUrls } = {}) {
     replyTo: payload.reply_to || payload.replyTo,
     tool,
     fromLabel: payload.from,
+    senderEmail,
   });
   const { html, attachments } = rewriteCidImages(
     payload.html || '',
@@ -197,6 +206,7 @@ module.exports = {
   shouldRelay,
   shouldRelayReason,
   firstReplyTo,
+  sendAsFor,
   toRelayPayload,
   buildEnvelope,
   envelopeBlock,

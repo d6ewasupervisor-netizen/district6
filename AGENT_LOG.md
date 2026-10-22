@@ -1,5 +1,9 @@
 # AGENT_LOG — District 6 Compliance Hub
 
+## 2026-10-22 — Signed receipts can send as the signer
+
+`sendTracked` passes `sentByEmail` into the relay envelope. A signer on `EMAIL_RELAY_SENDERS` leaves as that address. April Gauthier is the listed sender.
+
 ## 2026-10-14 — Palette explanations and brand graphics
 
 - Hovering a block in Update Components shows a short explanation of what that block is for (hero, headings, callouts, cards, steps, image).

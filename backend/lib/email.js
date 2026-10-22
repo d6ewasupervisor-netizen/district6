@@ -35,7 +35,10 @@ function stampReplyTo(payload, opts) {
 }
 
 async function sendTracked(sourceType, payload, extra = {}) {
-  const relay = toRelayPayload(payload, { tool: process.env.EMAIL_RELAY_TOOL || 'district6' });
+  const relay = toRelayPayload(payload, {
+    tool: process.env.EMAIL_RELAY_TOOL || 'district6',
+    senderEmail: extra.sentByEmail,
+  });
   const result = await resend.emails.send(relay.payload);
   reportResendPayload(sourceType, payload, result, {
     resendAllowed: !String(sourceType).includes('auth') && !String(sourceType).includes('link'),
