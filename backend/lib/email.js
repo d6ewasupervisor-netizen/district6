@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 import { reportResendPayload } from './email-outbox-ingest.js';
 
 const require = createRequire(import.meta.url);
-const { toRelayPayload } = require('./email-relay.js');
+const { toRelayPayload } = require('./email-relay.cjs');
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error('RESEND_API_KEY is required');

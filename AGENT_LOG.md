@@ -2,7 +2,7 @@
 
 ## 2026-10-22 — Signed receipts can send as the signer
 
-`sendTracked` passes `sentByEmail` into the relay envelope. A signer on `EMAIL_RELAY_SENDERS` leaves as that address. April Gauthier is the listed sender.
+`sendTracked` passes `sentByEmail` into the relay envelope. The shared relay file is `email-relay.cjs` because this API is an ES module package. A signer on `EMAIL_RELAY_SENDERS` leaves as that address. April Gauthier is the listed sender.
 
 ## 2026-10-14 — Palette explanations and brand graphics
 
