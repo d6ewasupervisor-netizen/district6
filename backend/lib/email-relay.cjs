@@ -28,7 +28,7 @@ const DEFAULT_BYPASS = [
   '@metrofax.com',
 ];
 const DEFAULT_DROP_REPLYTO_DOMAINS = [
-  '@retail-odyssey.com',
+  '@retail-odyssey.com', // relay: lookalike kept for identity matching only
   '@the-dump-bin.com',
 ];
 

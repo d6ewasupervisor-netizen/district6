@@ -11,7 +11,7 @@ if (!process.env.RESEND_API_KEY) {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = process.env.EMAIL_FROM || 'District 6 Compliance <noreply@retail-odyssey.com>';
+const FROM = process.env.EMAIL_FROM || 'District 6 Compliance <noreply@retail-odyssey.com>'; // relay: lookalike From is intentional (Resend domain)
 const SUPERVISOR = process.env.EMAIL_TO || 'april.gauthier@retailodyssey.com';
 
 function trimAddr(value) {
