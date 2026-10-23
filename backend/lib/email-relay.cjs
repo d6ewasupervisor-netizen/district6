@@ -132,8 +132,8 @@ function rewriteCidImages(html, attachments, inlineImageUrls) {
   return { html: out, attachments: kept };
 }
 
-function buildEnvelope({ to, cc, bcc, subject, replyTo, tool, fromLabel, senderEmail }) {
-  const sendAs = sendAsFor(senderEmail);
+function buildEnvelope({ to, cc, bcc, subject, replyTo, tool, fromLabel, sendAsEmail }) {
+  const sendAs = sendAsFor(sendAsEmail);
   return {
     to: toList(to),
     cc: toList(cc),
@@ -158,7 +158,7 @@ function envelopeBlock(envelope) {
  * into the relay-ingest shape.
  * Returns { payload, relayed, reason, envelope }.
  */
-function toRelayPayload(payload, { tool, inlineImageUrls, senderEmail } = {}) {
+function toRelayPayload(payload, { tool, inlineImageUrls, sendAs, senderEmail } = {}) {
   const reason = payload ? shouldRelayReason(payload) : 'no-recipients';
   if (reason !== 'relayed') {
     return { payload, relayed: false, reason, envelope: null };
@@ -171,7 +171,7 @@ function toRelayPayload(payload, { tool, inlineImageUrls, senderEmail } = {}) {
     replyTo: payload.reply_to || payload.replyTo,
     tool,
     fromLabel: payload.from,
-    senderEmail,
+    sendAsEmail: sendAs || senderEmail,
   });
   const { html, attachments } = rewriteCidImages(
     payload.html || '',
